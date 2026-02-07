@@ -1,0 +1,34 @@
+INFORMATION SECURITY MANAGEMENT SYSTEM (ISMS) POLICY
+
+1. Purpose
+The purpose of this policy is to define the organization’s commitment to protecting
+information assets from unauthorized access, disclosure, modification, or destruction.
+
+2. Scope
+This policy applies to all employees and systems within the organization.
+
+3. Information Security Objectives
+The organization shall implement security controls to ensure confidentiality, integrity,
+and availability of information.
+
+4. Roles and Responsibilities
+Management is responsible for ensuring that information security controls are implemented.
+Employees shall comply with security requirements.
+
+5. Access Control
+Access to systems shall be provided based on business requirements.
+User credentials shall be kept confidential.
+
+6. Data Protection
+Sensitive information shall be protected against unauthorized disclosure.
+Data shall be stored securely.
+
+7. Patch Management
+Systems shall be updated periodically to address security vulnerabilities.
+
+8. Risk Management
+Security risks shall be identified and addressed as necessary.
+
+9. Policy Review
+This policy shall be reviewed periodically.
+
