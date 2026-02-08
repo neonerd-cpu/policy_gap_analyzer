@@ -101,7 +101,7 @@ def chunk_text(text, chunk_size=500, overlap=100):
     chunks = text_splitter.split_text(sentence_text)
     return chunks
 
-# Function to compute similarities and find gaps
+# Function to compute similarities and find gaps with severity
 def analyze_gaps(reference_chunks, test_chunks, model_name='all-MiniLM-L6-v2'):
     # Load model: Downloads on first run (requires internet), then uses cache offline
     try:
@@ -120,14 +120,39 @@ def analyze_gaps(reference_chunks, test_chunks, model_name='all-MiniLM-L6-v2'):
     gaps = []
     for i, test_chunk in enumerate(test_chunks):
         max_sim = np.max(similarities[i].cpu().numpy())
-        if max_sim < 0.7:  # Threshold for "gap" (adjust as needed)
+        if max_sim < 0.7:  # Threshold for "gap"
+            # Determine severity
+            if max_sim < 0.5:
+                severity = "High"
+            elif max_sim < 0.7:
+                severity = "Medium"
+            else:
+                severity = "Low"
             gaps.append({
                 'test_chunk': test_chunk,
                 'max_similarity': max_sim,
-                'reason': 'Low similarity to any reference chunk'
+                'severity': severity,
+                'reason': 'Low similarity to any reference chunk',
+                'best_match_ref': reference_chunks[np.argmax(similarities[i].cpu().numpy())] if max_sim > 0 else "No close match"
             })
     
     return gaps
+
+# Function to generate revised policy
+def generate_revised_policy(test_text, gaps):
+    revised = test_text + "\n\n--- Suggested Revisions Based on Gaps ---\n"
+    for gap in gaps:
+        revised += f"Add/Revise: {gap['best_match_ref']}\n\n"
+    return revised
+
+# Function to generate roadmap
+def generate_roadmap(gaps):
+    roadmap = "Action Roadmap to Address Gaps:\n"
+    for i, gap in enumerate(gaps, 1):
+        priority = "High" if gap['severity'] == "High" else "Medium" if gap['severity'] == "Medium" else "Low"
+        timeline = "1-2 weeks" if priority == "High" else "1 month" if priority == "Medium" else "3 months"
+        roadmap += f"{i}. Address gap in chunk: {gap['test_chunk'][:100]}...\n   - Priority: {priority}\n   - Action: Incorporate reference guidance: {gap['best_match_ref'][:100]}...\n   - Timeline: {timeline}\n\n"
+    return roadmap
 
 # Main function
 def main(reference_folder, test_folder, output_dir='reports', chunk_size=500, overlap=100):
@@ -169,22 +194,38 @@ def main(reference_folder, test_folder, output_dir='reports', chunk_size=500, ov
         # Analyze gaps
         gaps = analyze_gaps(ref_chunks, test_chunks)
         
-        # Generate report (strip extension from filename)
+        # Generate outputs
         base_name = os.path.basename(test_file).rsplit('.', 1)[0]
-        report_path = os.path.join(output_dir, f"gap_report_{base_name}.txt")
-        with open(report_path, 'w') as f:
-            f.write(f"Gap Analysis Report for {test_file}\n")
+        
+        # 1. Revised Policy
+        revised_policy = generate_revised_policy(test_text, gaps)
+        revised_path = os.path.join(output_dir, f"revised_policy_{base_name}.txt")
+        with open(revised_path, 'w') as f:
+            f.write(f"Revised Policy for {test_file}\n\n{revised_policy}")
+        print(f"Revised policy saved to {revised_path}")
+        
+        # 2. Roadmap
+        roadmap = generate_roadmap(gaps)
+        roadmap_path = os.path.join(output_dir, f"roadmap_{base_name}.txt")
+        with open(roadmap_path, 'w') as f:
+            f.write(f"Roadmap for {test_file}\n\n{roadmap}")
+        print(f"Roadmap saved to {roadmap_path}")
+        
+        # 3. Gaps with Severity
+        gaps_path = os.path.join(output_dir, f"gaps_severity_{base_name}.txt")
+        with open(gaps_path, 'w') as f:
+            f.write(f"Gaps Analysis with Severity for {test_file}\n")
             f.write(f"Reference folder: {reference_folder} ({len(reference_files)} files)\n\n")
             if gaps:
                 f.write("Identified Gaps:\n")
                 for gap in gaps:
                     f.write(f"- Chunk: {gap['test_chunk'][:200]}...\n")
                     f.write(f"  Max Similarity: {gap['max_similarity']:.2f}\n")
+                    f.write(f"  Severity: {gap['severity']}\n")
                     f.write(f"  Reason: {gap['reason']}\n\n")
             else:
                 f.write("No significant gaps found.\n")
-        
-        print(f"Report saved to {report_path}")
+        print(f"Gaps report saved to {gaps_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze policy gaps with reference (.docx) and test (.docx/.txt/.pdf) folders (offline after first run).")
