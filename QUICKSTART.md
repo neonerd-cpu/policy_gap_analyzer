@@ -183,7 +183,7 @@ echo 'export OLLAMA_MODELS=$HOME/.ollama/models' >> ~/.bashrc
 Create folders:
 
 ```bash
-mkdir -p reference_policies test_policies outputs
+mkdir -p refs tests reports
 ```
 
 Example files:
@@ -218,9 +218,10 @@ python3 policy_gap_analyzer.py \
 Expected output files:
 
 ```text
-outputs/
-  ├── gap_analysis.txt
-  ├── revised_policy.txt
+reports/
+  ├── policy_name/
+  │   ├── gap_analysis.txt
+  │   └── revised_policy.txt
 ```
 
 If these exist, the run was successful ✅

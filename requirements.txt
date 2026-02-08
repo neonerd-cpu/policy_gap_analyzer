@@ -5,3 +5,5 @@ torch
 transformers
 PyPDF2
 ollama
+faiss-cpu
+nltk

@@ -14,6 +14,8 @@ setup(
         "transformers",
         "PyPDF2",
         "ollama",
+        "faiss-cpu",
+        "nltk"
     ],
     python_requires=">=3.9",
     entry_points={
