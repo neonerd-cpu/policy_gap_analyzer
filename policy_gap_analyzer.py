@@ -295,6 +295,43 @@ JSON response:"""
         
         return unique_gaps
     
+    def save_gaps_as_json(
+        self,
+        policy_path: str,
+        gaps: List[PolicyGap],
+        output_path: str
+    ) -> None:
+        """
+        Save identified gaps in structured JSON format
+        """
+        json_data = {
+            "policy_name": os.path.basename(policy_path),
+            "analysis_date": __import__('datetime').datetime.now().isoformat(),
+            "framework": "NIST Cybersecurity Framework",
+            "total_gaps": len(gaps),
+            "severity_breakdown": {
+                "Critical": len([g for g in gaps if g.severity == "Critical"]),
+                "High": len([g for g in gaps if g.severity == "High"]),
+                "Medium": len([g for g in gaps if g.severity == "Medium"]),
+                "Low": len([g for g in gaps if g.severity == "Low"]),
+            },
+            "gaps": [
+                {
+                    "category": g.category,
+                    "severity": g.severity,
+                    "gap_description": g.gap_description,
+                    "recommendation": g.recommendation,
+                    "framework_reference": g.framework_reference
+                }
+                for g in gaps
+            ]
+        }
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, indent=2)
+
+        print(f"🧾 JSON gap output saved to: {output_path}")
+
     def generate_revised_policy(
         self, 
         policy_path: str, 
@@ -543,6 +580,13 @@ def main():
                 roadmap,
                 output_path=os.path.join(output_folder, "gap_analysis.txt")
             )
+            # Step 5: Save gaps as JSON
+            analyzer.save_gaps_as_json(
+            policy_path,
+            gaps,
+            output_path=os.path.join(output_folder, "gaps.json")
+            )
+
             
             print("\n" + "-"*80)
             print(f"✅ ANALYSIS COMPLETE FOR: {policy_name}")
@@ -564,7 +608,7 @@ def main():
     print("✅ ALL POLICIES ANALYZED")
     print("="*80)
     print(f"📁 Results saved in reports/ folder")
-    print(f"   Each policy has its own subfolder with 2 output files")
+    print(f"   Each policy has its own subfolder with 3 output files")
     print("="*80)
     
 
