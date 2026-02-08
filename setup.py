@@ -1,48 +1,36 @@
-"""
-Setup configuration for Policy Gap Analyzer
-"""
 
+---
+
+# ⚙️ `setup.py`
+
+```python
 from setuptools import setup, find_packages
-
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
-
-with open("requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
     name="policy-gap-analyzer",
-    version="2.0.0",
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="Local LLM-powered policy gap analysis tool with NIST CSF framework support",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    url="https://github.com/neonerd-cpu/policy_gap_analyzer",
-    packages=find_packages(),
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Information Technology",
-        "Topic :: Security",
-        "License :: OSI Approved :: MIT License",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Operating System :: OS Independent",
+    version="1.0.0",
+    description="Offline Policy Gap Analyzer using FAISS, SentenceTransformers, and local LLM via Ollama",
+    author="neonerd-cpu",
+    license="MIT",
+    python_requires=">=3.9",
+    packages=find_packages(exclude=("tests",)),
+    install_requires=[
+        "sentence-transformers>=2.2.2",
+        "faiss-cpu>=1.7.4",
+        "numpy>=1.23",
+        "scikit-learn>=1.2",
+        "tqdm>=4.65",
+        "nltk>=3.8",
+        "requests>=2.31",
+        "pdfplumber>=0.10",
+        "python-docx>=1.1.0",
+        "torch>=2.0.0",
+        "transformers>=4.36.0",
     ],
-    python_requires=">=3.8",
-    install_requires=requirements,
+    include_package_data=True,
     entry_points={
         "console_scripts": [
-            "policy-gap-analyzer=policy_gap_analyzer:main",
-        ],
-    },
-    include_package_data=True,
-    keywords="policy analysis cybersecurity nist framework gap-analysis llm ollama",
-    project_urls={
-        "Bug Reports": "https://github.com/neonerd-cpu/policy_gap_analyzer/issues",
-        "Source": "https://github.com/neonerd-cpu/policy_gap_analyzer",
+            "policy-gap-analyzer=policy_gap_analyzer:main"
+        ]
     },
 )
