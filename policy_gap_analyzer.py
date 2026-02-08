@@ -173,20 +173,20 @@ Topics:"""
         Returns:
             List of PolicyGap objects
         """
-        print("📄 Extracting policy text...")
+        print(" Extracting policy text...")
         policy_text = self.extract_text_from_pdf(policy_path)
         
-        print("🔍 Analyzing policy coverage...")
+        print(" Analyzing policy coverage...")
         policy_topics = self.extract_policy_topics(policy_text)
         
-        print(f"📊 Found {len(policy_topics)} main topics in policy")
+        print(f" Found {len(policy_topics)} main topics in policy")
         print(f"Topics: {', '.join(policy_topics[:5])}...")
         
         gaps = []
         
         # Check coverage for each NIST function
         for function, categories in self.nist_framework.items():
-            print(f"\n🔎 Analyzing {function} function...")
+            print(f"\n Analyzing {function} function...")
             
             coverage = self.check_framework_coverage(policy_text, categories)
             
@@ -220,7 +220,7 @@ Topics:"""
         # Deduplicate similar gaps
         gaps = self._deduplicate_gaps(gaps)
         
-        print(f"\n✅ Analysis complete: Found {len(gaps)} significant gaps")
+        print(f"\n Analysis complete: Found {len(gaps)} significant gaps")
         return gaps
     
     def _analyze_specific_gap(
@@ -268,7 +268,7 @@ JSON response:"""
                     framework_reference=result.get('framework_reference', f"NIST CSF - {function}")
                 )
         except Exception as e:
-            print(f"⚠️  Error analyzing {category}: {str(e)}")
+            print(f"  Error analyzing {category}: {str(e)}")
         
         return None
     
@@ -345,7 +345,7 @@ JSON response:"""
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2)
 
-        print(f"🧾 JSON gap output saved to: {output_path}")
+        print(f" JSON gap output saved to: {output_path}")
 
     def generate_revised_policy(
         self, 
@@ -364,7 +364,7 @@ JSON response:"""
         Returns:
             Revised policy text
         """
-        print("\n📝 Generating revised policy...")
+        print("\n Generating revised policy...")
         
         original_policy = self.extract_text_from_pdf(policy_path)
         
@@ -376,7 +376,7 @@ JSON response:"""
         priority_gaps = critical_gaps + high_gaps
         
         if not priority_gaps:
-            print("✅ No critical or high priority gaps to address")
+            print(" No critical or high priority gaps to address")
             return original_policy
         
         # Generate additions for each gap
@@ -410,7 +410,7 @@ Policy section:"""
             
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(revised_policy)
-            print(f"💾 Revised policy saved to: {output_path}")
+            print(f" Revised policy saved to: {output_path}")
         
         return revised_policy
     
@@ -521,7 +521,7 @@ DETAILED GAP ANALYSIS
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(report)
         
-        print(f"\n📊 Report saved to: {output_path}")
+        print(f"\n Report saved to: {output_path}")
         return report
 
 
@@ -544,17 +544,17 @@ def main():
         policy_files.extend(glob.glob(os.path.join("tests", ext)))
     
     if not policy_files:
-        print("❌ No policy files found in tests/ folder")
+        print(" No policy files found in tests/ folder")
         print("   Looking for: .txt, .pdf, .md files")
         return
     
     print("="*80)
-    print("🚀 BATCH POLICY GAP ANALYSIS")
+    print(" BATCH POLICY GAP ANALYSIS")
     print("="*80)
-    print(f"📌 Similarity Threshold: {analyzer.similarity_threshold}")
-    print(f"📌 Higher threshold = stricter = more gaps")
-    print(f"📌 Lower threshold = lenient = fewer gaps")
-    print(f"📄 Policies Found: {len(policy_files)}\n")
+    print(f" Similarity Threshold: {analyzer.similarity_threshold}")
+    print(f" Higher threshold = stricter = more gaps")
+    print(f" Lower threshold = lenient = fewer gaps")
+    print(f" Policies Found: {len(policy_files)}\n")
     
     # Process each policy
     for i, policy_path in enumerate(policy_files, 1):
@@ -566,21 +566,21 @@ def main():
         os.makedirs(output_folder, exist_ok=True)
         
         print("\n" + "="*80)
-        print(f"📄 [{i}/{len(policy_files)}] Analyzing: {os.path.basename(policy_path)}")
-        print(f"📁 Output Folder: {output_folder}")
+        print(f" [{i}/{len(policy_files)}] Analyzing: {os.path.basename(policy_path)}")
+        print(f" Output Folder: {output_folder}")
         print("="*80)
         
         try:
             # Step 1: Identify gaps
-            print("🔍 Identifying gaps...")
+            print(" Identifying gaps...")
             gaps = analyzer.identify_gaps(policy_path)
             
             # Step 2: Generate improvement roadmap
-            print("🗺️  Generating roadmap...")
+            print("  Generating roadmap...")
             roadmap = analyzer.generate_improvement_roadmap(gaps)
             
             # Step 3: Generate revised policy
-            print("📝 Generating revised policy...")
+            print(" Generating revised policy...")
             revised_policy = analyzer.generate_revised_policy(
                 policy_path,
                 gaps,
@@ -588,7 +588,7 @@ def main():
             )
             
             # Step 4: Generate comprehensive report
-            print("📊 Generating analysis report...")
+            print(" Generating analysis report...")
             report = analyzer.generate_report(
                 policy_path,
                 gaps,
@@ -604,25 +604,26 @@ def main():
 
             
             print("\n" + "-"*80)
-            print(f"✅ ANALYSIS COMPLETE FOR: {policy_name}")
+            print(f" ANALYSIS COMPLETE FOR: {policy_name}")
             print("-"*80)
-            print(f"📊 Total Gaps: {len(gaps)}")
-            print(f"🔴 Critical: {len([g for g in gaps if g.severity == 'Critical'])}")
-            print(f"🟠 High: {len([g for g in gaps if g.severity == 'High'])}")
-            print(f"🟡 Medium: {len([g for g in gaps if g.severity == 'Medium'])}")
-            print(f"🟢 Low: {len([g for g in gaps if g.severity == 'Low'])}")
-            print(f"\n📁 Output folder: {output_folder}/")
+            print(f" Total Gaps: {len(gaps)}")
+            print(f" Critical: {len([g for g in gaps if g.severity == 'Critical'])}")
+            print(f" High: {len([g for g in gaps if g.severity == 'High'])}")
+            print(f" Medium: {len([g for g in gaps if g.severity == 'Medium'])}")
+            print(f" Low: {len([g for g in gaps if g.severity == 'Low'])}")
+            print(f"\n Output folder: {output_folder}/")
             print(f"   - gap_analysis.txt")
             print(f"   - revised_policy.txt")
+            print(f"   - gaps.json")
             
         except Exception as e:
-            print(f"\n❌ Error analyzing {policy_name}: {str(e)}")
+            print(f"\n Error analyzing {policy_name}: {str(e)}")
             continue
     
     print("\n\n" + "="*80)
-    print("✅ ALL POLICIES ANALYZED")
+    print(" ALL POLICIES ANALYZED")
     print("="*80)
-    print(f"📁 Results saved in reports/ folder")
+    print(f" Results saved in reports/ folder")
     print(f"   Each policy has its own subfolder with 3 output files")
     print("="*80)
     
