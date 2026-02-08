@@ -1,8 +1,21 @@
-Employee Handbook on Security
+Information Security Policy
 
-1. Employees are required to create strong passwords.
-2. Sensitive data should be encrypted at all times.
-3. Audits are performed every three months.
-4. Only approved users can access private files.
-5. Report any breaches immediately to IT.
-6. New policy: Remote work requires VPN usage.
+1. Purpose
+This policy defines the organization's approach to information security.
+
+2. Access Control
+Only authorized personnel may access critical systems. Passwords must be strong.
+
+3. Data Protection
+Sensitive data must be encrypted in transit and at rest.
+
+4. Incident Response
+All security incidents must be reported to the IT security team within 24 hours.
+
+5. Backup and Recovery
+Critical data must be backed up daily and recovery procedures tested quarterly.
+
+6. Risk Management
+Risks must be identified, assessed, and mitigated according to risk appetite.
+
+End of Policy.
