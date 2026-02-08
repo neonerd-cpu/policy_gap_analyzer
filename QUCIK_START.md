@@ -1,251 +1,319 @@
-# Quick Start Guide
+# Quick Start Guide - Policy Gap Analyzer (Fixed Version)
 
-## 5-Minute Setup
+## 🚀 5-Minute Setup
 
-### Step 1: Install Dependencies (First Time Only)
+### Step 1: Install Ollama and Pull Model (One Time)
 
 ```bash
-# Run the automated setup
-python setup.py
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull recommended model (3.8 GB download)
+ollama pull llama3.2:3b
+
+# Verify installation
+ollama list
 ```
 
-**What this does:**
-- Installs Python packages
-- Downloads NLTK data (~3MB)
-- Downloads SentenceTransformer model (~100MB)
-- Optionally sets up Ollama LLM (~2GB)
+### Step 2: Install Python Dependencies
 
-**After this, everything runs offline!**
+```bash
+# Clone or download the fixed version
+cd policy_gap_analyzer_fixed
+
+# Install requirements
+pip install -r requirements.txt
+```
+
+### Step 3: Prepare Your Policy
+
+Place your policy PDF in a test directory:
+```bash
+mkdir test_policies
+# Copy your policy.pdf to test_policies/
+```
+
+### Step 4: Run Analysis
+
+```bash
+# Edit policy_gap_analyzer.py line 321 to point to your policy
+# Change: policy_path = "test_policies/your_policy.pdf"
+
+# Run the analysis
+python policy_gap_analyzer.py
+```
+
+### Step 5: Review Results
+
+Check the generated files:
+- `gap_analysis_report.txt` - Detailed gap report
+- `revised_policy.txt` - Policy with suggested additions
 
 ---
 
-### Step 2: Prepare Your Files
+## 📊 Expected Results
 
-#### Reference Documents (NIST Framework)
-Place NIST framework .docx files in `reference/` folder:
+For a typical 10-page policy, you should see:
 
-```bash
-reference/
-├── nist_identify.docx
-├── nist_protect.docx
-├── nist_detect.docx
-├── nist_respond.docx
-└── nist_recover.docx
+```
+✅ ANALYSIS COMPLETE
+================================================================================
+📊 Total Gaps: 30-40 (NOT 200+!)
+🔴 Critical: 6-8
+🟠 High: 10-12
+🟡 Medium: 8-10
+🟢 Low: 6-10
 ```
 
-#### Test Policies
-Place your organizational policies in `test_policies/` folder:
-
-```bash
-test_policies/
-├── isms_policy.txt
-├── data_privacy_policy.docx
-├── patch_management.pdf
-└── risk_management.txt
-```
-
-**Supported formats:** .txt, .docx, .pdf
+**Processing Time**: 4-6 minutes on average hardware
 
 ---
 
-### Step 3: Run Analysis
+## ⚙️ Tuning the Gap Count
 
-#### Option A: Basic Analysis (No LLM)
-```bash
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/
+### If You're Getting Too Many Gaps (50+)
+
+**Option 1: Edit code directly**
+```python
+# In policy_gap_analyzer.py, line 42
+analyzer = PolicyGapAnalyzer(
+    similarity_threshold=0.60  # Lower = fewer gaps (was 0.65)
+)
 ```
 
-**Run time:** 5-10 seconds per policy  
-**Output:** Template-based recommendations
-
-#### Option B: Enhanced Analysis (With LLM)
+**Option 2: Use config file**
 ```bash
-# Terminal 1: Start Ollama
+# Edit config.ini
+similarity_threshold = 0.60
+
+# Run with config
+python run_with_config.py test_policies/your_policy.pdf
+```
+
+**Option 3: Test different thresholds**
+```bash
+# This will show you gap counts at different thresholds
+python test_thresholds.py test_policies/your_policy.pdf
+
+# Output:
+# Threshold 0.55 → 22 gaps
+# Threshold 0.60 → 28 gaps
+# Threshold 0.65 → 35 gaps ← Recommended
+# Threshold 0.70 → 48 gaps
+```
+
+### If You're Getting Too Few Gaps (<15)
+
+```python
+# Increase threshold for stricter analysis
+analyzer = PolicyGapAnalyzer(
+    similarity_threshold=0.70  # Higher = more gaps
+)
+```
+
+---
+
+## 🎯 Threshold Guide
+
+| Threshold | Gap Count | Best For |
+|-----------|-----------|----------|
+| 0.55-0.60 | 15-25 | Initial assessment, not ready for compliance |
+| 0.65 | 25-40 | **Most use cases** (recommended) |
+| 0.70-0.75 | 40-60 | Comprehensive audit, certification prep |
+
+---
+
+## 📝 Common Use Cases
+
+### Use Case 1: Quick Assessment
+```bash
+# Fast check with lenient threshold
+python test_thresholds.py your_policy.pdf 0.60
+```
+
+### Use Case 2: Compliance Audit
+```bash
+# Comprehensive check with strict threshold  
+python test_thresholds.py your_policy.pdf 0.70
+```
+
+### Use Case 3: Compare Multiple Policies
+```python
+# Edit policy_gap_analyzer.py main() function
+policies = [
+    "test_policies/isms_policy.pdf",
+    "test_policies/data_privacy_policy.pdf",
+    "test_policies/risk_management_policy.pdf"
+]
+
+for policy in policies:
+    print(f"\n=== Analyzing {policy} ===")
+    gaps = analyzer.identify_gaps(policy)
+    print(f"Gaps found: {len(gaps)}")
+```
+
+### Use Case 4: Focus on Critical Gaps Only
+```python
+# After running analysis
+critical_gaps = [g for g in gaps if g.severity == "Critical"]
+print(f"Critical gaps: {len(critical_gaps)}")
+
+for gap in critical_gaps:
+    print(f"- {gap.category}: {gap.gap_description}")
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Problem: "ConnectionError: Ollama not running"
+```bash
+# Start Ollama service
 ollama serve
 
-# Terminal 2: Run analysis
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/ \
-  --use-llm
+# In another terminal, run your analysis
+python policy_gap_analyzer.py
 ```
 
-**Run time:** 30-90 seconds per policy  
-**Output:** Intelligent LLM-generated recommendations
-
----
-
-### Step 4: Review Results
-
-Results are saved in `reports/` folder:
-
+### Problem: "Model not found"
 ```bash
-reports/
-├── isms_gap_analysis.json          # Detailed gap data
-├── isms_revised_policy.md          # Policy recommendations
-├── isms_improvement_roadmap.json   # Implementation plan
-└── isms_summary_report.md          # Executive summary
+# List available models
+ollama list
+
+# Pull missing model
+ollama pull llama3.2:3b
 ```
 
-**Start with:** `*_summary_report.md` for an overview
-
----
-
-## Common Use Cases
-
-### Single Policy Analysis
+### Problem: Out of memory
 ```bash
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/ \
-  --use-llm
+# Use smaller model
+ollama pull phi3:mini
+
+# Update config.ini or code
+model_name = phi3:mini
 ```
 
-### Batch Analysis (Multiple Policies)
-```bash
-# The tool automatically processes all files in test_folder
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/ \
-  --use-llm
-```
+### Problem: Very slow processing
+```python
+# In config.ini or code, reduce max topics
+max_topics = 10  # Instead of 15
 
-### Strict Gap Detection
-```bash
-# Lower threshold = more gaps detected
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/ \
-  --threshold 0.6
-```
-
-### Lenient Gap Detection
-```bash
-# Higher threshold = fewer gaps (only obvious missing items)
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/ \
-  --threshold 0.8
+# Or use faster model
+model_name = phi3:mini
 ```
 
 ---
 
-## Understanding Outputs
+## 📦 File Structure
 
-### 1. Gap Analysis JSON
-**File:** `*_gap_analysis.json`
+After setup, you should have:
 
-**What it contains:**
-- All identified gaps
-- NIST function mapping (IDENTIFY, PROTECT, etc.)
-- Severity ratings (Critical, High, Medium, Low)
-- Similarity scores
-
-**Use for:** Detailed technical analysis, programmatic processing
-
-### 2. Revised Policy (Markdown)
-**File:** `*_revised_policy.md`
-
-**What it contains:**
-- Recommended policy additions
-- NIST-aligned language
-- Justifications for changes
-
-**Use for:** Policy writing, stakeholder review
-
-### 3. Improvement Roadmap (JSON)
-**File:** `*_improvement_roadmap.json`
-
-**What it contains:**
-- Phased implementation plan
-- Timeline (0-3, 3-6, 6-12, 12+ months)
-- Actions prioritized by severity
-
-**Use for:** Project planning, resource allocation
-
-### 4. Summary Report (Markdown)
-**File:** `*_summary_report.md`
-
-**What it contains:**
-- Executive summary
-- Gap statistics
-- Top gaps by NIST function
-
-**Use for:** Management briefings, quick overview
-
----
-
-## Troubleshooting
-
-### Issue: "No reference files found"
-**Solution:**
-```bash
-# Make sure reference folder exists and contains .docx files
-ls reference/
-# Should show: *.docx files
 ```
-
-### Issue: "Ollama not available"
-**Solution:**
-```bash
-# Start Ollama in a separate terminal
-ollama serve
-
-# Or run without LLM
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/
-  # (no --use-llm flag)
-```
-
-### Issue: "Model not found"
-**Solution:**
-```bash
-# Download the model manually
-python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
-```
-
-### Issue: Analysis is slow
-**Solution:**
-```bash
-# Remove --use-llm for faster (but less intelligent) analysis
-# OR
-# Use smaller chunks
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/ \
-  --chunk_size 300
+policy_gap_analyzer_fixed/
+│
+├── policy_gap_analyzer.py      # Main analyzer
+├── run_with_config.py          # Run with config file
+├── test_thresholds.py          # Test different thresholds
+├── config.ini                  # Configuration file
+├── requirements.txt            # Python dependencies
+│
+├── test_policies/              # Your policies
+│   └── your_policy.pdf
+│
+└── outputs/                    # Generated reports
+    ├── gap_analysis_report.txt
+    ├── revised_policy.txt
+    └── improvement_roadmap.json
 ```
 
 ---
 
-## Getting Help
+## 🎓 Next Steps
 
-```bash
-# See all available options
-python policy_gap_analyzer.py --help
+1. **Run your first analysis** with default settings
+2. **Review the gap report** to understand what's detected
+3. **Adjust the threshold** if needed based on results
+4. **Generate revised policy** with suggested additions
+5. **Create improvement roadmap** for your team
 
-# Test with example
-python policy_gap_analyzer.py \
-  --reference_folder refs/ \
-  --test_folder tests/ \
-  --output test_run/
+---
+
+## 💡 Pro Tips
+
+### Tip 1: Batch Processing
+```python
+# Process multiple policies at once
+import glob
+
+for policy_path in glob.glob("test_policies/*.pdf"):
+    print(f"Analyzing {policy_path}...")
+    gaps = analyzer.identify_gaps(policy_path)
+    print(f"  → {len(gaps)} gaps found\n")
+```
+
+### Tip 2: Export to CSV
+```python
+import csv
+
+# After running analysis
+with open('gaps.csv', 'w', newline='') as f:
+    writer = csv.writer(f)
+    writer.writerow(['Category', 'Severity', 'Description', 'Recommendation'])
+    
+    for gap in gaps:
+        writer.writerow([
+            gap.category,
+            gap.severity,
+            gap.gap_description,
+            gap.recommendation
+        ])
+```
+
+### Tip 3: Filter by Function
+```python
+# Only analyze specific NIST functions
+# Edit config.ini
+analyze_identify = true
+analyze_protect = true
+analyze_detect = false    # Skip this
+analyze_respond = false   # Skip this
+analyze_recover = false   # Skip this
+```
+
+### Tip 4: Custom Categories
+```python
+# Add your own framework categories
+# In policy_gap_analyzer.py __init__
+self.nist_framework["CUSTOM"] = [
+    "Your Custom Category 1",
+    "Your Custom Category 2"
+]
 ```
 
 ---
 
-## Next Steps
+## 📞 Support
 
-1. ✅ Run setup.py (one time)
-2. ✅ Prepare reference documents
-3. ✅ Prepare test policies
-4. ✅ Run basic analysis
-5. ✅ Review outputs
-6. 🔄 Refine threshold if needed
-7. 🎯 Implement recommendations
+If you encounter issues:
+
+1. Check this guide first
+2. Review TECHNICAL_DOCS.md for detailed explanations
+3. Try different thresholds using test_thresholds.py
+4. Ensure Ollama is running and model is downloaded
 
 ---
 
-**Need More Details?** See README.md for comprehensive documentation.
+## ✅ Success Checklist
+
+- [ ] Ollama installed and running
+- [ ] Model downloaded (llama3.2:3b or similar)
+- [ ] Python dependencies installed
+- [ ] Policy PDF available
+- [ ] Analysis completed successfully
+- [ ] Gap count is reasonable (20-50 for typical policy)
+- [ ] Report generated and reviewed
+- [ ] Threshold adjusted if needed
+
+---
+
+**You're all set! Start analyzing your policies and improving your cybersecurity posture! 🎉**

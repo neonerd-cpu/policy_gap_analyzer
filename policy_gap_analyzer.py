@@ -78,13 +78,19 @@ class PolicyGapAnalyzer:
         }
     
     def extract_text_from_pdf(self, pdf_path: str) -> str:
-        """Extract text from PDF file"""
-        text = ""
-        with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text()
-        return text
+        """Extract text from PDF or TXT file"""
+        if pdf_path.endswith('.txt'):
+            # Handle plain text files
+            with open(pdf_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        else:
+            # Handle PDF files
+            text = ""
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    text += page.extract_text()
+            return text
     
     def chunk_text(self, text: str, chunk_size: int = 500) -> List[str]:
         """Split text into manageable chunks for processing"""
@@ -344,11 +350,17 @@ Policy section:"""
         revised_policy += "="*50
         revised_policy += "".join(additions)
         
-        # Save if output path provided
-        if output_path:
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(revised_policy)
-            print(f"💾 Revised policy saved to: {output_path}")
+        # Save if output path provided, otherwise use default
+        if output_path is None:
+            output_path = "reports/revised_policy.txt"
+        
+        # Ensure reports directory exists
+        import os
+        os.makedirs("reports", exist_ok=True)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(revised_policy)
+        print(f"💾 Revised policy saved to: {output_path}")
         
         return revised_policy
     
@@ -401,7 +413,7 @@ Policy section:"""
         policy_path: str,
         gaps: List[PolicyGap],
         roadmap: Dict,
-        output_path: str = "gap_analysis_report.txt"
+        output_path: str = "reports/gap_analysis_report.txt"
     ) -> str:
         """Generate a comprehensive gap analysis report"""
         
@@ -474,8 +486,12 @@ def main():
         similarity_threshold=0.65   # Balanced threshold
     )
     
+    # Ensure output directories exist
+    import os
+    os.makedirs("reports", exist_ok=True)
+    
     # Path to policy document
-    policy_path = "test_policies/isms_policy.pdf"
+    policy_path = "tests/test_policy.txt"
     
     print("🚀 Starting Policy Gap Analysis")
     print(f"📌 Similarity Threshold: {analyzer.similarity_threshold}")
@@ -492,7 +508,7 @@ def main():
     revised_policy = analyzer.generate_revised_policy(
         policy_path,
         gaps,
-        output_path="revised_policy.txt"
+        output_path="reports/revised_policy.txt"
     )
     
     # Step 4: Generate comprehensive report
@@ -500,7 +516,7 @@ def main():
         policy_path,
         gaps,
         roadmap,
-        output_path="gap_analysis_report.txt"
+        output_path="reports/gap_analysis_report.txt"
     )
     
     print("\n" + "="*80)
@@ -511,7 +527,7 @@ def main():
     print(f"🟠 High: {len([g for g in gaps if g.severity == 'High'])}")
     print(f"🟡 Medium: {len([g for g in gaps if g.severity == 'Medium'])}")
     print(f"🟢 Low: {len([g for g in gaps if g.severity == 'Low'])}")
-    print("\n📄 Output files:")
+    print("\n📄 Output files in reports/ folder:")
     print("  - gap_analysis_report.txt")
     print("  - revised_policy.txt")
     
