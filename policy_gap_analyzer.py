@@ -1,26 +1,9 @@
 """
 Local LLM-Powered Policy Gap Analysis Module
-===========================================
-
-Purpose:
---------
-This module performs cybersecurity policy gap analysis against the
-NIST Cybersecurity Framework (CSF) using:
-
-- Local LLM inference (Ollama – no cloud dependency)
-- Semantic similarity via Sentence Transformers
-- Intelligent filtering to prevent gap over-reporting
-
-Key Design Goals:
------------------
-- Fully offline operation
-- Explainable gap detection
-- Reduced false positives
-- Auditor-friendly outputs
+Fixed version with intelligent gap detection to avoid over-reporting
 """
 
 import os
-# Force ALL HuggingFace components to operate offline
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ["HF_DATASETS_OFFLINE"] = "1"
@@ -29,28 +12,14 @@ from typing import List, Dict, Tuple
 from dataclasses import dataclass
 import PyPDF2
 import ollama
-# Semantic similarity model
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-# -------------------------------------------------------------------
-# DATA STRUCTURE DEFINITIONS
-# -------------------------------------------------------------------
 
 @dataclass
 class PolicyGap:
-        """
-    Represents a single identified policy gap.
-
-    Attributes:
-    -----------
-    category : NIST CSF category where the gap exists
-    gap_description : Explanation of what is missing
-    severity : Risk impact level (Critical / High / Medium / Low)
-    recommendation : Actionable remediation guidance
-    framework_reference : Mapping back to NIST CSF
-    """
+    """Represents a gap in the policy"""
     category: str
     gap_description: str
     severity: str  # Critical, High, Medium, Low
@@ -59,14 +28,7 @@ class PolicyGap:
 
 
 class PolicyGapAnalyzer:
-       """
-    Main engine responsible for:
-    - Parsing policy documents
-    - Measuring coverage against NIST CSF
-    - Using LLM reasoning ONLY when needed
-    - Producing structured audit-ready outputs
-    """
-
+    """Analyzes policy documents for gaps against NIST CSF framework"""
     
     def __init__(self, model_name: str = "llama3.2:3b", similarity_threshold: float = 0.65):
         """
@@ -129,10 +91,7 @@ class PolicyGapAnalyzer:
                 "Communications"
             ]
         }
-
-    # -------------------------------------------------------------------
-    # DOCUMENT INGESTION
-    # -------------------------------------------------------------------
+    
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text from PDF or TXT file"""
         if pdf_path.endswith('.txt'):
@@ -156,18 +115,9 @@ class PolicyGapAnalyzer:
             chunk = ' '.join(words[i:i + chunk_size])
             chunks.append(chunk)
         return chunks
-
-    # -------------------------------------------------------------------
-    # POLICY TOPIC EXTRACTION (LLM)
-    # -------------------------------------------------------------------
-
+    
     def extract_policy_topics(self, policy_text: str) -> List[str]:
-                """
-        Uses the LLM to identify major cybersecurity topics covered
-        by the policy.
-
-        This is NOT used for scoring — only for analyst visibility.
-        """
+        """Extract key topics and sections from the policy using LLM"""
         prompt = f"""Analyze this policy document and extract the main topics and areas it covers.
 List only the specific cybersecurity topics/areas mentioned (e.g., "Access Control", "Incident Response", "Data Classification").
 Return ONLY a comma-separated list of topics, nothing else.
