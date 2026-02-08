@@ -158,6 +158,7 @@ def generate_roadmap(gaps):
 def main(reference_folder, test_folder, output_dir='reports', chunk_size=500, overlap=100):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+        print(f"Created output directory: {output_dir}")
     
     # Get reference files (.docx only)
     reference_files = get_docx_files(reference_folder)
@@ -196,36 +197,46 @@ def main(reference_folder, test_folder, output_dir='reports', chunk_size=500, ov
         
         # Generate outputs
         base_name = os.path.basename(test_file).rsplit('.', 1)[0]
+        print(f"Processing outputs for {base_name}...")
         
         # 1. Revised Policy
-        revised_policy = generate_revised_policy(test_text, gaps)
-        revised_path = os.path.join(output_dir, f"revised_policy_{base_name}.txt")
-        with open(revised_path, 'w') as f:
-            f.write(f"Revised Policy for {test_file}\n\n{revised_policy}")
-        print(f"Revised policy saved to {revised_path}")
+        try:
+            revised_policy = generate_revised_policy(test_text, gaps)
+            revised_path = os.path.join(output_dir, f"revised_policy_{base_name}.txt")
+            with open(revised_path, 'w') as f:
+                f.write(f"Revised Policy for {test_file}\n\n{revised_policy}")
+            print(f"Revised policy saved to {revised_path}")
+        except Exception as e:
+            print(f"Error saving revised policy for {test_file}: {e}")
         
         # 2. Roadmap
-        roadmap = generate_roadmap(gaps)
-        roadmap_path = os.path.join(output_dir, f"roadmap_{base_name}.txt")
-        with open(roadmap_path, 'w') as f:
-            f.write(f"Roadmap for {test_file}\n\n{roadmap}")
-        print(f"Roadmap saved to {roadmap_path}")
+        try:
+            roadmap = generate_roadmap(gaps)
+            roadmap_path = os.path.join(output_dir, f"roadmap_{base_name}.txt")
+            with open(roadmap_path, 'w') as f:
+                f.write(f"Roadmap for {test_file}\n\n{roadmap}")
+            print(f"Roadmap saved to {roadmap_path}")
+        except Exception as e:
+            print(f"Error saving roadmap for {test_file}: {e}")
         
         # 3. Gaps with Severity
-        gaps_path = os.path.join(output_dir, f"gaps_severity_{base_name}.txt")
-        with open(gaps_path, 'w') as f:
-            f.write(f"Gaps Analysis with Severity for {test_file}\n")
-            f.write(f"Reference folder: {reference_folder} ({len(reference_files)} files)\n\n")
-            if gaps:
-                f.write("Identified Gaps:\n")
-                for gap in gaps:
-                    f.write(f"- Chunk: {gap['test_chunk'][:200]}...\n")
-                    f.write(f"  Max Similarity: {gap['max_similarity']:.2f}\n")
-                    f.write(f"  Severity: {gap['severity']}\n")
-                    f.write(f"  Reason: {gap['reason']}\n\n")
-            else:
-                f.write("No significant gaps found.\n")
-        print(f"Gaps report saved to {gaps_path}")
+        try:
+            gaps_path = os.path.join(output_dir, f"gaps_severity_{base_name}.txt")
+            with open(gaps_path, 'w') as f:
+                f.write(f"Gaps Analysis with Severity for {test_file}\n")
+                f.write(f"Reference folder: {reference_folder} ({len(reference_files)} files)\n\n")
+                if gaps:
+                    f.write("Identified Gaps:\n")
+                    for gap in gaps:
+                        f.write(f"- Chunk: {gap['test_chunk'][:200]}...\n")
+                        f.write(f"  Max Similarity: {gap['max_similarity']:.2f}\n")
+                        f.write(f"  Severity: {gap['severity']}\n")
+                        f.write(f"  Reason: {gap['reason']}\n\n")
+                else:
+                    f.write("No significant gaps found.\n")
+            print(f"Gaps report saved to {gaps_path}")
+        except Exception as e:
+            print(f"Error saving gaps report for {test_file}: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Analyze policy gaps with reference (.docx) and test (.docx/.txt/.pdf) folders (offline after first run).")
