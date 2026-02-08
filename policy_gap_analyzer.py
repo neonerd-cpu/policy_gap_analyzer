@@ -1,302 +1,520 @@
+"""
+Local LLM-Powered Policy Gap Analysis Module
+Fixed version with intelligent gap detection to avoid over-reporting
+"""
+
 import os
-import sys
-import glob
 import json
-import requests
-from datetime import datetime
-from docx import Document
-import pdfplumber
-import nltk
-from tqdm import tqdm
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sentence_transformers import SentenceTransformer, util
+from typing import List, Dict, Tuple
+from dataclasses import dataclass
+import PyPDF2
+import ollama
+from sentence_transformers import SentenceTransformer
 import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
-# ================= NLTK Setup ==================
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    print("Downloading NLTK punkt tokenizer (first run only)...")
-    nltk.download('punkt', quiet=True)
 
-# ================= FILE EXTRACTION ==================
+@dataclass
+class PolicyGap:
+    """Represents a gap in the policy"""
+    category: str
+    gap_description: str
+    severity: str  # Critical, High, Medium, Low
+    recommendation: str
+    framework_reference: str
 
-def extract_text_from_docx(file_path):
-    try:
-        doc = Document(file_path)
-        return '\n'.join([p.text for p in doc.paragraphs])
-    except Exception as e:
-        print(f"Error reading {file_path}: {e}")
-        return ""
 
-def extract_text_from_file(file_path):
-    ext = file_path.lower().split('.')[-1]
-    if ext == 'docx':
-        return extract_text_from_docx(file_path)
-    elif ext == 'txt':
+class PolicyGapAnalyzer:
+    """Analyzes policy documents for gaps against NIST CSF framework"""
+    
+    def __init__(self, model_name: str = "llama3.2:3b", similarity_threshold: float = 0.65):
+        """
+        Initialize the analyzer
+        
+        Args:
+            model_name: Local Ollama model to use
+            similarity_threshold: Minimum similarity score (0-1) to consider content as covered
+                                Higher = stricter (more gaps), Lower = lenient (fewer gaps)
+                                Default 0.65 is balanced
+        """
+        self.model_name = model_name
+        self.similarity_threshold = similarity_threshold
+        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        
+        # NIST CSF Core Functions and Categories (high-level framework)
+        self.nist_framework = {
+            "IDENTIFY": [
+                "Asset Management",
+                "Business Environment",
+                "Governance",
+                "Risk Assessment",
+                "Risk Management Strategy"
+            ],
+            "PROTECT": [
+                "Identity Management and Access Control",
+                "Awareness and Training",
+                "Data Security",
+                "Information Protection Processes and Procedures",
+                "Maintenance",
+                "Protective Technology"
+            ],
+            "DETECT": [
+                "Anomalies and Events",
+                "Security Continuous Monitoring",
+                "Detection Processes"
+            ],
+            "RESPOND": [
+                "Response Planning",
+                "Communications",
+                "Analysis",
+                "Mitigation",
+                "Improvements"
+            ],
+            "RECOVER": [
+                "Recovery Planning",
+                "Improvements",
+                "Communications"
+            ]
+        }
+    
+    def extract_text_from_pdf(self, pdf_path: str) -> str:
+        """Extract text from PDF file"""
+        text = ""
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            for page in pdf_reader.pages:
+                text += page.extract_text()
+        return text
+    
+    def chunk_text(self, text: str, chunk_size: int = 500) -> List[str]:
+        """Split text into manageable chunks for processing"""
+        words = text.split()
+        chunks = []
+        for i in range(0, len(words), chunk_size):
+            chunk = ' '.join(words[i:i + chunk_size])
+            chunks.append(chunk)
+        return chunks
+    
+    def extract_policy_topics(self, policy_text: str) -> List[str]:
+        """Extract key topics and sections from the policy using LLM"""
+        prompt = f"""Analyze this policy document and extract the main topics and areas it covers.
+List only the specific cybersecurity topics/areas mentioned (e.g., "Access Control", "Incident Response", "Data Classification").
+Return ONLY a comma-separated list of topics, nothing else.
+
+Policy text:
+{policy_text[:3000]}
+
+Topics:"""
+        
+        response = ollama.generate(model=self.model_name, prompt=prompt)
+        topics = [topic.strip() for topic in response['response'].split(',')]
+        return topics[:15]  # Limit to top 15 topics
+    
+    def check_framework_coverage(self, policy_text: str, framework_requirements: List[str]) -> Dict:
+        """
+        Check which framework requirements are covered using semantic similarity
+        
+        Returns:
+            Dict with 'covered' and 'missing' requirements
+        """
+        # Create embeddings
+        policy_embedding = self.embedding_model.encode([policy_text])[0]
+        requirement_embeddings = self.embedding_model.encode(framework_requirements)
+        
+        # Calculate similarities
+        similarities = cosine_similarity(
+            [policy_embedding], 
+            requirement_embeddings
+        )[0]
+        
+        covered = []
+        missing = []
+        
+        for req, sim in zip(framework_requirements, similarities):
+            if sim >= self.similarity_threshold:
+                covered.append(req)
+            else:
+                missing.append((req, sim))
+        
+        return {
+            'covered': covered,
+            'missing': missing
+        }
+    
+    def identify_gaps(self, policy_path: str, framework_path: str = None) -> List[PolicyGap]:
+        """
+        Identify gaps in policy compared to NIST CSF framework
+        
+        Args:
+            policy_path: Path to policy PDF
+            framework_path: Path to framework PDF (optional, uses built-in NIST categories)
+        
+        Returns:
+            List of PolicyGap objects
+        """
+        print("📄 Extracting policy text...")
+        policy_text = self.extract_text_from_pdf(policy_path)
+        
+        print("🔍 Analyzing policy coverage...")
+        policy_topics = self.extract_policy_topics(policy_text)
+        
+        print(f"📊 Found {len(policy_topics)} main topics in policy")
+        print(f"Topics: {', '.join(policy_topics[:5])}...")
+        
+        gaps = []
+        
+        # Check coverage for each NIST function
+        for function, categories in self.nist_framework.items():
+            print(f"\n🔎 Analyzing {function} function...")
+            
+            coverage = self.check_framework_coverage(policy_text, categories)
+            
+            # Only report significant gaps
+            for missing_category, similarity_score in coverage['missing']:
+                # Skip if similarity is close to threshold (borderline cases)
+                if similarity_score > self.similarity_threshold - 0.15:
+                    continue
+                
+                # Determine severity based on how far below threshold
+                if similarity_score < 0.3:
+                    severity = "Critical"
+                elif similarity_score < 0.5:
+                    severity = "High"
+                elif similarity_score < 0.6:
+                    severity = "Medium"
+                else:
+                    severity = "Low"
+                
+                # Generate detailed gap analysis using LLM
+                gap_analysis = self._analyze_specific_gap(
+                    policy_text, 
+                    function, 
+                    missing_category,
+                    severity
+                )
+                
+                if gap_analysis:
+                    gaps.append(gap_analysis)
+        
+        # Deduplicate similar gaps
+        gaps = self._deduplicate_gaps(gaps)
+        
+        print(f"\n✅ Analysis complete: Found {len(gaps)} significant gaps")
+        return gaps
+    
+    def _analyze_specific_gap(
+        self, 
+        policy_text: str, 
+        function: str, 
+        category: str,
+        severity: str
+    ) -> PolicyGap:
+        """Use LLM to analyze a specific gap in detail"""
+        
+        # Create focused prompt
+        prompt = f"""You are analyzing a cybersecurity policy for gaps against NIST Cybersecurity Framework.
+
+NIST CSF Function: {function}
+Category: {category}
+Severity: {severity}
+
+Policy excerpt (first 2000 chars):
+{policy_text[:2000]}
+
+Task: Determine if this policy adequately addresses "{category}" under the {function} function.
+
+Respond in this exact JSON format:
+{{
+    "gap_exists": true/false,
+    "gap_description": "Brief description of what's missing (if gap exists)",
+    "recommendation": "Specific actionable recommendation to address gap",
+    "framework_reference": "Specific NIST CSF reference"
+}}
+
+Be strict: Only report as a gap if there is NO meaningful coverage of this topic in the policy.
+JSON response:"""
+        
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return f.read()
+            response = ollama.generate(model=self.model_name, prompt=prompt)
+            result = self._extract_json(response['response'])
+            
+            if result and result.get('gap_exists', False):
+                return PolicyGap(
+                    category=category,
+                    gap_description=result.get('gap_description', f"Missing {category} controls"),
+                    severity=severity,
+                    recommendation=result.get('recommendation', f"Implement {category} controls"),
+                    framework_reference=result.get('framework_reference', f"NIST CSF - {function}")
+                )
         except Exception as e:
-            print(f"Error reading {file_path}: {e}")
-            return ""
-    elif ext == 'pdf':
-        try:
-            with pdfplumber.open(file_path) as pdf:
-                return '\n'.join([p.extract_text() or "" for p in pdf.pages])
-        except Exception as e:
-            print(f"Error reading {file_path}: {e}")
-            return ""
-    else:
-        print(f"Unsupported file type: {file_path}")
-        return ""
-
-def get_docx_files(folder_path):
-    if not os.path.exists(folder_path):
-        raise ValueError(f"{folder_path} does not exist")
-    files = glob.glob(os.path.join(folder_path, "*.docx"))
-    if not files:
-        print(f"Warning: No .docx files found in {folder_path}")
-    return files
-
-def get_test_files(folder_path):
-    if not os.path.exists(folder_path):
-        raise ValueError(f"{folder_path} does not exist")
-    patterns = [os.path.join(folder_path, ext) for ext in ["*.docx","*.txt","*.pdf"]]
-    files = []
-    for p in patterns:
-        files.extend(glob.glob(p))
-    if not files:
-        print(f"Warning: No test files found in {folder_path}")
-    return files
-
-def combine_references(reference_files):
-    combined = ""
-    for file in reference_files:
-        combined += extract_text_from_docx(file) + "\n\n"
-    return combined.strip()
-
-# ================= TEXT CHUNKING ==================
-
-def chunk_text(text, chunk_size=500, overlap=100):
-    sentences = nltk.sent_tokenize(text)
-    text_joined = ' '.join(sentences)
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=overlap,
-        separators=["\n\n","\n",". "," ",""]
-    )
-    return splitter.split_text(text_joined)
-
-# ================= POLICY TYPE DETECTION ==================
-
-def detect_policy_type(filename, text):
-    filename_lower = filename.lower()
-    text_lower = text.lower()
-    indicators = {
-        'ISMS': ['isms','information_security','infosec','security_management'],
-        'Data Privacy': ['privacy','data_privacy','gdpr','pii'],
-        'Patch Management': ['patch','update','vulnerability'],
-        'Risk Management': ['risk','risk_assessment'],
-        'Incident Response': ['incident','ir','incident_response'],
-        'Access Control': ['access','iam','identity'],
-        'Backup Recovery': ['backup','recovery','disaster']
-    }
-    scores = {}
-    for policy, keywords in indicators.items():
-        score = sum(3 if kw in filename_lower else 0 for kw in keywords)
-        score += sum(1 for kw in keywords if kw in text_lower[:2000])
-        scores[policy] = score
-    best = max(scores, key=scores.get)
-    return best if scores[best]>=2 else 'General'
-
-def filter_relevant_references(chunks, policy_type):
-    domain_keywords = {
-        'ISMS': ['security','isms','iso 27001','asset','governance'],
-        'Data Privacy': ['privacy','personal data','gdpr','pii','consent'],
-        'Patch Management': ['patch','vulnerability','update','deployment'],
-        'Risk Management': ['risk','threat','vulnerability','assessment'],
-        'Incident Response': ['incident','breach','forensics','response'],
-        'Access Control': ['access','authentication','authorization','identity'],
-        'Backup Recovery': ['backup','recovery','continuity','restoration'],
-        'General': []
-    }
-    if policy_type=='General': return chunks
-    keywords = domain_keywords.get(policy_type, [])
-    filtered = []
-    for c in chunks:
-        c_lower = c.lower()
-        if any(kw in c_lower for kw in keywords) or any(k in c_lower for k in ['must','shall','required','policy','procedure','process']):
-            filtered.append(c)
-    return filtered
-
-# ================= NIST REQUIREMENTS ==================
-
-def extract_nist_requirements(chunks):
-    nist = {'IDENTIFY':[],'PROTECT':[],'DETECT':[],'RESPOND':[],'RECOVER':[]}
-    nist_keywords = {
-        'IDENTIFY':['asset','governance','risk assessment'],
-        'PROTECT':['access','training','encryption','baseline'],
-        'DETECT':['anomaly','monitoring','alerts','event'],
-        'RESPOND':['response','containment','forensics','communication'],
-        'RECOVER':['recovery','continuity','restoration','backup']
-    }
-    for chunk in chunks:
-        scores = {f: sum(1 for k in kws if k in chunk.lower()) for f,kws in nist_keywords.items()}
-        if max(scores.values())>0:
-            nist[max(scores,key=scores.get)].append(chunk)
-    return nist
-
-# ================= LLM INTERFACE ==================
-
-def check_ollama():
-    try:
-        r = requests.get('http://localhost:11434/api/tags', timeout=5)
-        return r.status_code==200
-    except:
-        return False
-
-def query_llm(prompt, model="llama3.2:3b", timeout=180):
-    try:
-        r = requests.post(
-            'http://localhost:11434/api/generate',
-            json={'model':model,'prompt':prompt,'stream':False},
-            timeout=timeout
-        )
-        if r.status_code==200:
-            return r.json()['response']
-        else:
-            print(f"LLM failed: {r.status_code}")
-            return None
-    except Exception as e:
-        print(f"LLM error: {e}")
+            print(f"⚠️  Error analyzing {category}: {str(e)}")
+        
         return None
-
-# ================= GAP ANALYSIS ==================
-
-def analyze_gaps(reference_chunks, test_chunks, nist_reqs, threshold=0.7, model_name='all-MiniLM-L6-v2'):
-    print("Loading embedding model...")
-    model = SentenceTransformer(model_name)
-    test_emb = model.encode(test_chunks, convert_to_tensor=True, show_progress_bar=True)
-    gaps = {'IDENTIFY':[],'PROTECT':[],'DETECT':[],'RESPOND':[],'RECOVER':[]}
-    for func, req_chunks in nist_reqs.items():
-        if not req_chunks: continue
-        req_emb = model.encode(req_chunks, convert_to_tensor=True, show_progress_bar=False)
-        sims = util.cos_sim(test_emb, req_emb)
-        for i, req in enumerate(req_chunks):
-            max_sim = float(np.max(sims[:,i].cpu().numpy()))
-            if max_sim < threshold:
-                if max_sim<0.4: severity='Critical'; coverage='Not addressed'
-                elif max_sim<0.55: severity='High'; coverage='Minimally addressed'
-                else: severity='Medium'; coverage='Partially addressed'
-                gaps[func].append({
-                    'nist_function': func,
-                    'requirement': req[:500],
-                    'max_similarity': max_sim,
-                    'severity': severity,
-                    'current_coverage': coverage,
-                    'recommendation': f"Implement controls to address: {req[:200]}..."
-                })
-    return gaps
-
-# ================= POLICY REVISION WITH LLM ==================
-
-def generate_revised_policy_llm(test_text, gaps, ref_text, model="llama3.2:3b"):
-    all_gaps = sum([g for g in gaps.values()], [])
-    all_gaps.sort(key=lambda x: {'Critical':0,'High':1,'Medium':2,'Low':3}[x['severity']])
-    top_gaps = all_gaps[:15]
-    gap_summary = "\n".join([f"{i+1}. [{g['severity']}] {g['nist_function']}: {g['requirement'][:150]}..." for i,g in enumerate(top_gaps)])
-    prompt = f"""You are a cybersecurity policy expert.
-
-ORIGINAL POLICY:
-{test_text[:3000]}
-
-IDENTIFIED GAPS:
-{gap_summary}
-
-NIST FRAMEWORK EXCERPT:
-{ref_text[:2500]}
-
-Provide revised policy sections addressing these gaps. Format as policy text."""
-    resp = query_llm(prompt, model=model)
-    return resp or generate_revised_policy_template(test_text, all_gaps)
-
-def generate_revised_policy_template(test_text, gaps):
-    revised = "# Policy Revisions\n\n## Original Policy\n\n" + test_text + "\n\n---\n\n## Recommended Additions\n\n"
-    grouped = {}
-    for gap in gaps:
-        grouped.setdefault(gap['nist_function'], []).append(gap)
-    for func, fgaps in grouped.items():
-        revised += f"### {func}\n\n"
-        for g in fgaps[:5]:
-            revised += f"**Severity {g['severity']}**: {g['recommendation']}\n\n"
-    return revised
-
-# ================= OUTPUT FUNCTIONS ==================
-
-def save_json(data, filename, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, filename)
-    with open(path,'w',encoding='utf-8') as f: json.dump(data,f,indent=2)
-    print(f"Saved: {path}")
-    return path
-
-def save_markdown(text, filename, output_dir):
-    os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, filename)
-    with open(path,'w',encoding='utf-8') as f: f.write(text)
-    print(f"Saved: {path}")
-    return path
-
-# ================= MAIN FUNCTION ==================
-
-def main(reference_folder, test_folder, output_dir='reports', chunk_size=500, overlap=100, use_llm=True, model="llama3.2:3b", threshold=0.7):
-    print("="*50,"\n🔐 POLICY GAP ANALYSIS WITH LLM\n","="*50)
     
-    if use_llm and not check_ollama():
-        print("⚠️ Ollama not running, disabling LLM")
-        use_llm=False
+    def _extract_json(self, text: str) -> Dict:
+        """Extract JSON from LLM response"""
+        try:
+            # Try to find JSON in the response
+            start = text.find('{')
+            end = text.rfind('}') + 1
+            if start != -1 and end > start:
+                json_str = text[start:end]
+                return json.loads(json_str)
+        except:
+            pass
+        return None
     
-    reference_files = get_docx_files(reference_folder)
-    if not reference_files: return
-    ref_text = combine_references(reference_files)
-    ref_chunks = chunk_text(ref_text, chunk_size, overlap)
-    nist_reqs = extract_nist_requirements(ref_chunks)
-    
-    test_files = get_test_files(test_folder)
-    if not test_files: return
-    
-    for idx, test_file in enumerate(test_files,1):
-        print(f"\n📄 Processing {test_file} ({idx}/{len(test_files)})")
-        test_text = extract_text_from_file(test_file)
-        if not test_text: continue
+    def _deduplicate_gaps(self, gaps: List[PolicyGap]) -> List[PolicyGap]:
+        """Remove duplicate or very similar gaps"""
+        if not gaps:
+            return gaps
         
-        policy_type = detect_policy_type(os.path.basename(test_file), test_text)
-        filtered_chunks = filter_relevant_references(ref_chunks, policy_type)
-        domain_nist = extract_nist_requirements(filtered_chunks)
-        test_chunks = chunk_text(test_text, chunk_size, overlap)
+        # Create embeddings for gap descriptions
+        descriptions = [gap.gap_description for gap in gaps]
+        embeddings = self.embedding_model.encode(descriptions)
         
-        gaps = analyze_gaps(filtered_chunks, test_chunks, domain_nist, threshold)
-        save_json(gaps, os.path.basename(test_file).rsplit('.',1)[0]+"_gap_analysis.json", output_dir)
+        # Calculate similarity matrix
+        similarity_matrix = cosine_similarity(embeddings)
         
+        # Keep only unique gaps (similarity < 0.8 with all previous gaps)
+        unique_gaps = []
+        for i, gap in enumerate(gaps):
+            is_unique = True
+            for j in range(i):
+                if similarity_matrix[i][j] > 0.8:
+                    is_unique = False
+                    break
+            if is_unique:
+                unique_gaps.append(gap)
+        
+        return unique_gaps
+    
+    def generate_revised_policy(
+        self, 
+        policy_path: str, 
+        gaps: List[PolicyGap],
+        output_path: str = None
+    ) -> str:
+        """
+        Generate a revised policy that addresses identified gaps
+        
+        Args:
+            policy_path: Original policy path
+            gaps: List of identified gaps
+            output_path: Where to save revised policy (optional)
+        
+        Returns:
+            Revised policy text
+        """
         print("\n📝 Generating revised policy...")
-        revised = generate_revised_policy_llm(test_text, gaps, "\n\n".join(filtered_chunks[:50]), model) if use_llm else generate_revised_policy_template(test_text, sum([g for g in gaps.values()],[]))
-        save_markdown(revised, os.path.basename(test_file).rsplit('.',1)[0]+"_revised_policy.md", output_dir)
+        
+        original_policy = self.extract_text_from_pdf(policy_path)
+        
+        # Group gaps by severity
+        critical_gaps = [g for g in gaps if g.severity == "Critical"]
+        high_gaps = [g for g in gaps if g.severity == "High"]
+        
+        # Focus on critical and high severity gaps
+        priority_gaps = critical_gaps + high_gaps
+        
+        if not priority_gaps:
+            print("✅ No critical or high priority gaps to address")
+            return original_policy
+        
+        # Generate additions for each gap
+        additions = []
+        for gap in priority_gaps[:10]:  # Limit to top 10 priority gaps
+            prompt = f"""Based on this gap in a cybersecurity policy, write a concise policy section to address it.
+
+Gap Category: {gap.category}
+Gap Description: {gap.gap_description}
+Recommendation: {gap.recommendation}
+
+Write a brief policy section (2-4 sentences) that addresses this gap.
+Use formal policy language. Start with a section header.
+
+Policy section:"""
+            
+            response = ollama.generate(model=self.model_name, prompt=prompt)
+            additions.append(f"\n\n### {gap.category}\n{response['response'].strip()}")
+        
+        # Combine original policy with additions
+        revised_policy = original_policy + "\n\n" + "="*50
+        revised_policy += "\n## ADDITIONS TO ADDRESS IDENTIFIED GAPS\n"
+        revised_policy += "="*50
+        revised_policy += "".join(additions)
+        
+        # Save if output path provided
+        if output_path:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(revised_policy)
+            print(f"💾 Revised policy saved to: {output_path}")
+        
+        return revised_policy
     
-    print("\n✅ ALL DONE. Reports in:", os.path.abspath(output_dir))
+    def generate_improvement_roadmap(self, gaps: List[PolicyGap]) -> Dict:
+        """
+        Generate a prioritized roadmap for addressing gaps
+        
+        Returns:
+            Dictionary with phased improvement plan
+        """
+        # Group by severity
+        severity_order = ["Critical", "High", "Medium", "Low"]
+        roadmap = {
+            "Phase 1 (0-3 months) - Critical": [],
+            "Phase 2 (3-6 months) - High Priority": [],
+            "Phase 3 (6-12 months) - Medium Priority": [],
+            "Phase 4 (12+ months) - Low Priority": []
+        }
+        
+        for gap in gaps:
+            if gap.severity == "Critical":
+                roadmap["Phase 1 (0-3 months) - Critical"].append({
+                    "category": gap.category,
+                    "action": gap.recommendation,
+                    "framework_ref": gap.framework_reference
+                })
+            elif gap.severity == "High":
+                roadmap["Phase 2 (3-6 months) - High Priority"].append({
+                    "category": gap.category,
+                    "action": gap.recommendation,
+                    "framework_ref": gap.framework_reference
+                })
+            elif gap.severity == "Medium":
+                roadmap["Phase 3 (6-12 months) - Medium Priority"].append({
+                    "category": gap.category,
+                    "action": gap.recommendation,
+                    "framework_ref": gap.framework_reference
+                })
+            else:
+                roadmap["Phase 4 (12+ months) - Low Priority"].append({
+                    "category": gap.category,
+                    "action": gap.recommendation,
+                    "framework_ref": gap.framework_reference
+                })
+        
+        return roadmap
+    
+    def generate_report(
+        self, 
+        policy_path: str,
+        gaps: List[PolicyGap],
+        roadmap: Dict,
+        output_path: str = "gap_analysis_report.txt"
+    ) -> str:
+        """Generate a comprehensive gap analysis report"""
+        
+        report = f"""
+{'='*80}
+POLICY GAP ANALYSIS REPORT
+{'='*80}
 
-# ================= ENTRY POINT ==================
+Policy Analyzed: {os.path.basename(policy_path)}
+Analysis Date: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Framework: NIST Cybersecurity Framework
+Total Gaps Identified: {len(gaps)}
 
-if __name__=="__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--reference_folder', required=True)
-    parser.add_argument('--test_folder', required=True)
-    parser.add_argument('--output', default='reports')
-    parser.add_argument('--chunk_size', type=int, default=500)
-    parser.add_argument('--overlap', type=int, default=100)
-    parser.add_argument('--use_llm', action='store_true')
-    parser.add_argument('--model', default='llama3.2:3b')
-    parser.add_argument('--threshold', type=float, default=0.7)
-    args = parser.parse_args()
-    main(args.reference_folder, args.test_folder, args.output, args.chunk_size, args.overlap, args.use_llm, args.model, args.threshold)
+{'='*80}
+EXECUTIVE SUMMARY
+{'='*80}
+
+Gap Severity Breakdown:
+- Critical: {len([g for g in gaps if g.severity == 'Critical'])}
+- High:     {len([g for g in gaps if g.severity == 'High'])}
+- Medium:   {len([g for g in gaps if g.severity == 'Medium'])}
+- Low:      {len([g for g in gaps if g.severity == 'Low'])}
+
+{'='*80}
+DETAILED GAP ANALYSIS
+{'='*80}
+"""
+        
+        # Group gaps by severity
+        for severity in ["Critical", "High", "Medium", "Low"]:
+            severity_gaps = [g for g in gaps if g.severity == severity]
+            if severity_gaps:
+                report += f"\n{severity.upper()} SEVERITY GAPS ({len(severity_gaps)})\n"
+                report += "-" * 80 + "\n"
+                
+                for i, gap in enumerate(severity_gaps, 1):
+                    report += f"\n{i}. {gap.category}\n"
+                    report += f"   Gap: {gap.gap_description}\n"
+                    report += f"   Recommendation: {gap.recommendation}\n"
+                    report += f"   Framework Reference: {gap.framework_reference}\n"
+        
+        # Add roadmap
+        report += f"\n\n{'='*80}\n"
+        report += "IMPROVEMENT ROADMAP\n"
+        report += f"{'='*80}\n"
+        
+        for phase, items in roadmap.items():
+            if items:
+                report += f"\n{phase}\n"
+                report += "-" * 80 + "\n"
+                for item in items:
+                    report += f"• {item['category']}: {item['action']}\n"
+        
+        # Save report
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(report)
+        
+        print(f"\n📊 Report saved to: {output_path}")
+        return report
+
+
+def main():
+    """Main execution function"""
+    
+    # Initialize analyzer with balanced threshold
+    # Increase threshold (e.g., 0.70) for fewer gaps
+    # Decrease threshold (e.g., 0.60) for more gaps
+    analyzer = PolicyGapAnalyzer(
+        model_name="llama3.2:3b",  # Change to your preferred local model
+        similarity_threshold=0.65   # Balanced threshold
+    )
+    
+    # Path to policy document
+    policy_path = "test_policies/isms_policy.pdf"
+    
+    print("🚀 Starting Policy Gap Analysis")
+    print(f"📌 Similarity Threshold: {analyzer.similarity_threshold}")
+    print(f"📌 Higher threshold = stricter = more gaps")
+    print(f"📌 Lower threshold = lenient = fewer gaps\n")
+    
+    # Step 1: Identify gaps
+    gaps = analyzer.identify_gaps(policy_path)
+    
+    # Step 2: Generate improvement roadmap
+    roadmap = analyzer.generate_improvement_roadmap(gaps)
+    
+    # Step 3: Generate revised policy
+    revised_policy = analyzer.generate_revised_policy(
+        policy_path,
+        gaps,
+        output_path="revised_policy.txt"
+    )
+    
+    # Step 4: Generate comprehensive report
+    report = analyzer.generate_report(
+        policy_path,
+        gaps,
+        roadmap,
+        output_path="gap_analysis_report.txt"
+    )
+    
+    print("\n" + "="*80)
+    print("✅ ANALYSIS COMPLETE")
+    print("="*80)
+    print(f"📊 Total Gaps: {len(gaps)}")
+    print(f"🔴 Critical: {len([g for g in gaps if g.severity == 'Critical'])}")
+    print(f"🟠 High: {len([g for g in gaps if g.severity == 'High'])}")
+    print(f"🟡 Medium: {len([g for g in gaps if g.severity == 'Medium'])}")
+    print(f"🟢 Low: {len([g for g in gaps if g.severity == 'Low'])}")
+    print("\n📄 Output files:")
+    print("  - gap_analysis_report.txt")
+    print("  - revised_policy.txt")
+    
+
+if __name__ == "__main__":
+    main()
