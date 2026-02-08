@@ -1,6 +1,11 @@
 # Policy Gap Analyzer (Offline, Local LLM)
 
-A fully **offline-capable policy gap analysis tool** that compares organizational policies against reference frameworks (CIS, MS-ISAC, NIST, etc.) using **local embeddings, FAISS similarity search, and a local LLM via Ollama**.
+A fully **offline-capable policy gap analysis tool** that compares organizational policies against reference frameworks (CIS, MS-ISAC, NIST, etc.) using **local embeddings, semantic similarity, and a local LLM via Ollama**.
+
+> ⚠️ **Note (Update)**  
+> The current codebase runs **fully offline after initial setup**, but **FAISS and DOCX support are optional / roadmap features**.  
+> Semantic similarity is currently computed directly using `SentenceTransformer + cosine similarity`.  
+> FAISS integration can be added without changing the offline guarantees.
 
 This project is designed for **security audits, compliance testing, and LLM evaluation** without relying on cloud APIs.
 
@@ -10,9 +15,10 @@ This project is designed for **security audits, compliance testing, and LLM eval
 
 - ✅ 100% **offline runtime** (after initial setup)
 - ✅ Local **LLM inference via Ollama**
-- ✅ **SentenceTransformer embeddings**
-- ✅ **FAISS** for fast semantic similarity search
-- ✅ Supports **TXT / DOCX / PDF**
+- ✅ **SentenceTransformer embeddings (offline cached)**
+- ✅ Optional **FAISS-ready architecture**
+- ✅ Supports **TXT / PDF / MD**  
+- ⚠️ DOCX listed for compatibility with planned extensions
 - ✅ Batch comparison of multiple policies
 - ✅ Deterministic, testable gap detection
 - ✅ Designed for **Intel CPU (no GPU required)**
@@ -23,17 +29,22 @@ This project is designed for **security audits, compliance testing, and LLM eval
 
 ```
 Reference Policies ──┐
-                     ├─▶ SentenceTransformer ─▶ FAISS Index
-Test Policies ───────┘                               │
-                                                     ▼
-                                           Gap Candidates
-                                                     │
-                                                     ▼
-                                           Local LLM (Ollama)
-                                                     │
-                                                     ▼
-                                            Gap Report Files
+                     ├─▶ SentenceTransformer
+Test Policies ───────┘          │
+                                ▼
+                      Semantic Similarity
+                                │
+                                ▼
+                       Gap Candidates
+                                │
+                                ▼
+                     Local LLM (Ollama)
+                                │
+                                ▼
+                      Gap Report Files
 ```
+
+> ℹ️ FAISS can be inserted between embeddings and similarity for large-scale corpora.
 
 ---
 
@@ -52,7 +63,7 @@ Test Policies ───────┘                               │
 ### 1️⃣ System packages
 ```bash
 sudo apt update
-sudo apt install -y   python3 python3-pip python3-venv   build-essential   poppler-utils   git curl
+sudo apt install -y python3 python3-pip python3-venv build-essential poppler-utils git curl
 ```
 
 ---
@@ -69,7 +80,7 @@ ollama --version
 
 ---
 
-### 3️⃣ Download LLM Model (DO THIS ONCE)
+### 3️⃣ Download LLM Model (ONE TIME)
 ```bash
 ollama pull llama3.2:3b
 ```
@@ -89,35 +100,47 @@ ollama serve
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt --break-system-packages
+pip install -r requirements.txt
 ```
 
 ---
 
-## 🗂 Data & Model Caching
+## 🗂 Model & Cache Handling (Offline Guarantee)
 
-```bash
-export TRANSFORMERS_CACHE=$PWD/cache/transformers
-export HF_HOME=$PWD/cache/huggingface
-export FAISS_CACHE_PATH=$PWD/cache/faiss
-export OLLAMA_MODELS=$HOME/.ollama/models
+> ⚠️ Important: **SentenceTransformer models must exist in local cache**  
+> The code runs with:
+```python
+SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", local_files_only=True)
 ```
+
+Run once with internet:
+```bash
+python3 - <<'EOF'
+from sentence_transformers import SentenceTransformer
+SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+print("Model cached")
+EOF
+```
+
+After this → **no internet required**.
 
 ---
 
 ## ▶️ Running the Analyzer
 
 ```bash
-python3 policy_gap_analyzer.py   --reference_folder ./refs   --test_folder ./tests   --output ./reports
+python3 policy_gap_analyzer.py
 ```
 
----
+Input folder:
+```
+tests/
+```
 
-## ⏱ Performance (Intel i5, 16GB RAM)
-
-- Embeddings: 2–4 minutes
-- FAISS indexing: < 30 seconds
-- LLM analysis: 3–8 minutes
+Output folder:
+```
+reports/
+```
 
 ---
 
@@ -126,10 +149,13 @@ python3 policy_gap_analyzer.py   --reference_folder ./refs   --test_folder ./tes
 | Component | Offline |
 |---------|---------|
 | Python code | ✅ |
-| FAISS | ✅ |
-| SentenceTransformer | ✅ |
+| SentenceTransformer | ✅ (cached) |
+| Semantic similarity | ✅ |
 | Ollama inference | ✅ |
+| FAISS (if added) | ✅ |
 | Internet APIs | ❌ |
 
 ---
 
+## 📜 License
+MIT
