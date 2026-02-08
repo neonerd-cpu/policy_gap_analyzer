@@ -21,23 +21,17 @@ except LookupError:
     nltk.download('punkt', quiet=True)
 
 # ============================================================================
-# FILE EXTRACTION FUNCTIONS
-# ============================================================================
 
 def extract_text_from_docx(file_path):
-    """Extract text from a .docx file"""
     try:
         doc = Document(file_path)
-        full_text = []
-        for para in doc.paragraphs:
-            full_text.append(para.text)
+        full_text = [para.text for para in doc.paragraphs]
         return '\n'.join(full_text)
     except Exception as e:
         print(f"Error reading {file_path}: {e}")
         return ""
 
 def extract_text_from_file(file_path):
-    """Extract text from any supported file (.docx, .txt, .pdf)"""
     ext = file_path.lower().split('.')[-1]
     if ext == 'docx':
         return extract_text_from_docx(file_path)
@@ -51,31 +45,23 @@ def extract_text_from_file(file_path):
     elif ext == 'pdf':
         try:
             with pdfplumber.open(file_path) as pdf:
-                text = ""
-                for page in pdf.pages:
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + '\n'
-                return text
+                return '\n'.join([page.extract_text() for page in pdf.pages if page.extract_text()])
         except Exception as e:
             print(f"Error reading .pdf file {file_path}: {e}")
             return ""
     else:
-        print(f"Unsupported file format for {file_path}. Supported: .docx, .txt, .pdf")
+        print(f"Unsupported file format: {file_path}")
         return ""
 
 def get_docx_files(folder_path):
-    """Get all .docx files from a folder (for references)"""
     if not os.path.exists(folder_path):
         raise ValueError(f"Folder {folder_path} does not exist.")
-    pattern = os.path.join(folder_path, "*.docx")
-    files = glob.glob(pattern)
+    files = glob.glob(os.path.join(folder_path, "*.docx"))
     if not files:
         print(f"Warning: No .docx files found in {folder_path}.")
     return files
 
 def get_test_files(folder_path):
-    """Get all supported test files (.docx, .txt, .pdf) from a folder"""
     if not os.path.exists(folder_path):
         raise ValueError(f"Folder {folder_path} does not exist.")
     patterns = [
@@ -91,254 +77,108 @@ def get_test_files(folder_path):
     return files
 
 def combine_references(reference_files):
-    """Combine multiple reference files into one text"""
     combined_text = ""
     for ref_file in reference_files:
-        text = extract_text_from_docx(ref_file)
-        combined_text += text + "\n\n"
+        combined_text += extract_text_from_docx(ref_file) + "\n\n"
     return combined_text.strip()
 
 # ============================================================================
-# TEXT CHUNKING FUNCTIONS
-# ============================================================================
 
-def chunk_text(text, chunk_size=500, overlap=100):
-    """Chunk text with semantic boundaries using LangChain splitter"""
+def chunk_text(text, chunk_size=1200, overlap=200):
     sentences = nltk.sent_tokenize(text)
     sentence_text = ' '.join(sentences)
-    
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=overlap,
         separators=["\n\n", "\n", ". ", " ", ""]
     )
-    chunks = text_splitter.split_text(sentence_text)
-    return chunks
+    return text_splitter.split_text(sentence_text)
 
-# ============================================================================
-# POLICY TYPE DETECTION AND DOMAIN MATCHING
 # ============================================================================
 
 def detect_policy_type(filename, policy_text):
-    """Detect policy type from filename and content"""
-    
     filename_lower = filename.lower()
     text_lower = policy_text.lower()
-    
-    # Policy type indicators
     policy_indicators = {
-        'ISMS': {
-            'filename_keywords': ['isms', 'information_security', 'infosec', 'security_management'],
-            'content_keywords': ['information security management', 'isms', 'security policy', 
-                                'information assets', 'security controls', 'iso 27001']
-        },
-        'Data Privacy': {
-            'filename_keywords': ['privacy', 'data_privacy', 'data_protection', 'gdpr', 'pii'],
-            'content_keywords': ['personal data', 'privacy', 'data subject', 'consent',
-                                'data protection', 'gdpr', 'personally identifiable']
-        },
-        'Patch Management': {
-            'filename_keywords': ['patch', 'patching', 'update', 'vulnerability'],
-            'content_keywords': ['patch management', 'software update', 'vulnerability remediation',
-                                'patch deployment', 'security patch', 'patch cycle']
-        },
-        'Risk Management': {
-            'filename_keywords': ['risk', 'risk_management', 'risk_assessment'],
-            'content_keywords': ['risk management', 'risk assessment', 'risk analysis',
-                                'risk mitigation', 'threat assessment', 'risk register']
-        },
-        'Incident Response': {
-            'filename_keywords': ['incident', 'ir', 'incident_response'],
-            'content_keywords': ['incident response', 'security incident', 'incident handling',
-                                'breach response', 'incident management']
-        },
-        'Access Control': {
-            'filename_keywords': ['access', 'access_control', 'iam', 'identity'],
-            'content_keywords': ['access control', 'authentication', 'authorization',
-                                'identity management', 'privileged access']
-        },
-        'Backup Recovery': {
-            'filename_keywords': ['backup', 'recovery', 'bcdr', 'disaster'],
-            'content_keywords': ['backup', 'disaster recovery', 'business continuity',
-                                'data recovery', 'restoration']
-        }
+        'ISMS': {'filename_keywords': ['isms','information_security','infosec','security_management'],
+                 'content_keywords': ['information security management','isms','security policy','information assets','security controls','iso 27001']},
+        'Data Privacy': {'filename_keywords':['privacy','data_privacy','data_protection','gdpr','pii'],
+                 'content_keywords':['personal data','privacy','data subject','consent','data protection','gdpr','personally identifiable']},
+        'Patch Management': {'filename_keywords':['patch','patching','update','vulnerability'],
+                 'content_keywords':['patch management','software update','vulnerability remediation','patch deployment','security patch','patch cycle']},
+        'Risk Management': {'filename_keywords':['risk','risk_management','risk_assessment'],
+                 'content_keywords':['risk management','risk assessment','risk analysis','risk mitigation','threat assessment','risk register']},
+        'Incident Response': {'filename_keywords':['incident','ir','incident_response'],
+                 'content_keywords':['incident response','security incident','incident handling','breach response','incident management']},
+        'Access Control': {'filename_keywords':['access','access_control','iam','identity'],
+                 'content_keywords':['access control','authentication','authorization','identity management','privileged access']},
+        'Backup Recovery': {'filename_keywords':['backup','recovery','bcdr','disaster'],
+                 'content_keywords':['backup','disaster recovery','business continuity','data recovery','restoration']}
     }
-    
-    # Score each policy type
     scores = {}
     for policy_type, indicators in policy_indicators.items():
         score = 0
-        
-        # Check filename
         for keyword in indicators['filename_keywords']:
             if keyword in filename_lower:
-                score += 3  # Higher weight for filename matches
-        
-        # Check content (first 2000 chars for efficiency)
+                score += 3
         text_sample = text_lower[:2000]
         for keyword in indicators['content_keywords']:
             if keyword in text_sample:
                 score += 1
-        
         scores[policy_type] = score
-    
-    # Return best match or 'General' if no strong match
     if max(scores.values()) >= 2:
         return max(scores, key=scores.get)
     else:
         return 'General'
 
 def filter_relevant_references(reference_chunks, policy_type):
-    """Filter reference chunks to those relevant for the detected policy type"""
-    
-    # Domain-specific keyword mapping
     domain_keywords = {
-        'ISMS': [
-            'information security', 'isms', 'security management', 'iso 27001',
-            'security controls', 'information assets', 'security governance',
-            'security policy', 'security framework', 'asset management',
-            'governance', 'risk assessment', 'access control', 'data security'
-        ],
-        'Data Privacy': [
-            'privacy', 'personal data', 'data protection', 'gdpr', 'pii',
-            'personally identifiable', 'data subject', 'consent', 'data breach',
-            'privacy rights', 'data minimization', 'retention', 'data security',
-            'confidentiality', 'encryption'
-        ],
-        'Patch Management': [
-            'patch', 'vulnerability', 'update', 'software update', 'patch management',
-            'vulnerability management', 'remediation', 'patch deployment',
-            'patch testing', 'maintenance', 'configuration management',
-            'baseline configuration', 'system hardening'
-        ],
-        'Risk Management': [
-            'risk', 'threat', 'vulnerability', 'risk assessment', 'risk management',
-            'risk analysis', 'risk mitigation', 'risk treatment', 'likelihood',
-            'impact', 'risk register', 'threat assessment', 'control effectiveness',
-            'risk appetite', 'risk tolerance'
-        ],
-        'Incident Response': [
-            'incident', 'incident response', 'security incident', 'breach',
-            'incident handling', 'containment', 'forensics', 'investigation',
-            'incident management', 'response procedures', 'escalation',
-            'anomalies', 'detection', 'monitoring', 'alerts'
-        ],
-        'Access Control': [
-            'access control', 'authentication', 'authorization', 'identity',
-            'access management', 'privileged access', 'least privilege',
-            'credential', 'multi-factor', 'password', 'user access',
-            'role-based access', 'access review'
-        ],
-        'Backup Recovery': [
-            'backup', 'recovery', 'business continuity', 'disaster recovery',
-            'restoration', 'resilience', 'backup procedures', 'recovery planning',
-            'continuity planning', 'recovery time', 'recovery point',
-            'data backup', 'system recovery'
-        ],
-        'General': []  # General policies get all requirements
+        'ISMS': ['information security','isms','security management','iso 27001','security controls','information assets','security governance','security policy','security framework','asset management','governance','risk assessment','access control','data security'],
+        'Data Privacy': ['privacy','personal data','data protection','gdpr','pii','personally identifiable','data subject','consent','data breach','privacy rights','data minimization','retention','data security','confidentiality','encryption'],
+        'Patch Management': ['patch','vulnerability','update','software update','patch management','vulnerability management','remediation','patch deployment','patch testing','maintenance','configuration management','baseline configuration','system hardening'],
+        'Risk Management': ['risk','threat','vulnerability','risk assessment','risk management','risk analysis','risk mitigation','risk treatment','likelihood','impact','risk register','threat assessment','control effectiveness','risk appetite','risk tolerance'],
+        'Incident Response': ['incident','incident response','security incident','breach','incident handling','containment','forensics','investigation','incident management','response procedures','escalation','anomalies','detection','monitoring','alerts'],
+        'Access Control': ['access control','authentication','authorization','identity','access management','privileged access','least privilege','credential','multi-factor','password','user access','role-based access','access review'],
+        'Backup Recovery': ['backup','recovery','business continuity','disaster recovery','restoration','resilience','backup procedures','recovery planning','continuity planning','recovery time','recovery point','data backup','system recovery'],
+        'General': []
     }
-    
     if policy_type == 'General':
-        print(f"  Policy type: General (using all NIST requirements)")
         return reference_chunks
-    
-    # Get relevant keywords for this policy type
     relevant_keywords = domain_keywords.get(policy_type, [])
-    
-    if not relevant_keywords:
-        print(f"  Policy type: {policy_type} (no specific filtering, using all requirements)")
-        return reference_chunks
-    
-    # Filter chunks that are relevant to this domain
     filtered_chunks = []
     for chunk in reference_chunks:
         chunk_lower = chunk.lower()
-        
-        # Check if chunk contains domain-relevant keywords
-        relevance_score = sum(1 for keyword in relevant_keywords if keyword in chunk_lower)
-        
-        # Include chunk if it has at least 1 relevant keyword
-        # OR if it's a core NIST requirement that applies to all policies
-        is_core_requirement = any(keyword in chunk_lower for keyword in [
-            'must', 'shall', 'required', 'policy', 'procedure', 'process',
-            'management', 'organization', 'documentation'
-        ])
-        
-        if relevance_score > 0 or is_core_requirement:
+        relevance_score = sum(1 for kw in relevant_keywords if kw in chunk_lower)
+        is_core_requirement = any(kw in chunk_lower for kw in ['must','shall','required','policy','procedure','process','management','organization','documentation'])
+        # Strict filtering: require 2 keyword matches OR core + 1 keyword
+        if relevance_score >= 2 or (is_core_requirement and relevance_score >= 1):
             filtered_chunks.append(chunk)
-    
     print(f"  Policy type: {policy_type}")
     print(f"  Filtered references: {len(filtered_chunks)}/{len(reference_chunks)} chunks relevant")
-    
     return filtered_chunks
 
 # ============================================================================
-# NIST FRAMEWORK EXTRACTION
-# ============================================================================
 
 def extract_nist_requirements(reference_chunks):
-    """Parse reference chunks to identify NIST CSF requirements by function"""
-    nist_requirements = {
-        'IDENTIFY': [],
-        'PROTECT': [],
-        'DETECT': [],
-        'RESPOND': [],
-        'RECOVER': []
-    }
-    
-    # NIST function keywords (expanded for better categorization)
+    nist_requirements = {'IDENTIFY': [],'PROTECT': [],'DETECT': [],'RESPOND': [],'RECOVER': []}
     nist_keywords = {
-        'IDENTIFY': [
-            'asset management', 'business environment', 'governance', 'risk assessment',
-            'risk management strategy', 'supply chain', 'inventory', 'criticality',
-            'organizational understanding', 'priorities', 'objectives', 'stakeholder'
-        ],
-        'PROTECT': [
-            'access control', 'awareness', 'training', 'data security', 
-            'information protection', 'maintenance', 'protective technology',
-            'authentication', 'authorization', 'encryption', 'least privilege',
-            'security awareness', 'baseline configuration', 'integrity checking'
-        ],
-        'DETECT': [
-            'anomalies', 'events', 'continuous monitoring', 'detection processes',
-            'security monitoring', 'event detection', 'alerts', 'logging',
-            'baseline deviation', 'malicious code', 'unauthorized access'
-        ],
-        'RESPOND': [
-            'response planning', 'communications', 'analysis', 'mitigation',
-            'improvements', 'incident response', 'containment', 'forensics',
-            'incident handling', 'response procedures', 'stakeholder notification'
-        ],
-        'RECOVER': [
-            'recovery planning', 'improvements', 'communications', 'restoration',
-            'business continuity', 'disaster recovery', 'resilience', 'lessons learned',
-            'recovery procedures', 'recovery time objective', 'backup restoration'
-        ]
+        'IDENTIFY':['asset management','business environment','governance','risk assessment','risk management strategy','supply chain','inventory','criticality','organizational understanding','priorities','objectives','stakeholder'],
+        'PROTECT':['access control','awareness','training','data security','information protection','maintenance','protective technology','authentication','authorization','encryption','least privilege','security awareness','baseline configuration','integrity checking'],
+        'DETECT':['anomalies','events','continuous monitoring','detection processes','security monitoring','event detection','alerts','logging','baseline deviation','malicious code','unauthorized access'],
+        'RESPOND':['response planning','communications','analysis','mitigation','improvements','incident response','containment','forensics','incident handling','response procedures','stakeholder notification'],
+        'RECOVER':['recovery planning','improvements','communications','restoration','business continuity','disaster recovery','resilience','lessons learned','recovery procedures','recovery time objective','backup restoration']
     }
-    
-    # Categorize chunks by NIST function
     for chunk in reference_chunks:
         chunk_lower = chunk.lower()
-        
-        # Score each function based on keyword matches
-        scores = {}
-        for function, keywords in nist_keywords.items():
-            score = sum(1 for keyword in keywords if keyword in chunk_lower)
-            scores[function] = score
-        
-        # Assign to the function with highest score (if any matches)
+        scores = {f: sum(1 for kw in kws if kw in chunk_lower) for f,kws in nist_keywords.items()}
         if max(scores.values()) > 0:
             best_function = max(scores, key=scores.get)
             nist_requirements[best_function].append(chunk)
-    
     return nist_requirements
 
 # ============================================================================
-# LLM INTEGRATION (OLLAMA)
-# ============================================================================
 
 def check_ollama_available():
-    """Check if Ollama is running"""
     try:
         response = requests.get('http://localhost:11434/api/tags', timeout=5)
         return response.status_code == 200
@@ -346,17 +186,8 @@ def check_ollama_available():
         return False
 
 def query_local_llm(prompt, model="llama3.2:3b", timeout=180):
-    """Query local Ollama LLM"""
     try:
-        response = requests.post(
-            'http://localhost:11434/api/generate',
-            json={
-                'model': model,
-                'prompt': prompt,
-                'stream': False
-            },
-            timeout=timeout
-        )
+        response = requests.post('http://localhost:11434/api/generate', json={'model':model,'prompt':prompt,'stream':False}, timeout=timeout)
         if response.status_code == 200:
             return response.json()['response']
         else:
@@ -373,59 +204,35 @@ def query_local_llm(prompt, model="llama3.2:3b", timeout=180):
         return None
 
 # ============================================================================
-# GAP ANALYSIS
-# ============================================================================
 
-def analyze_gaps_nist_aligned(reference_chunks, test_chunks, nist_requirements, 
-                              model_name='all-MiniLM-L6-v2', threshold=0.7):
-    """Analyze gaps with NIST framework alignment using semantic similarity"""
-    
+def analyze_gaps_nist_aligned(reference_chunks, test_chunks, nist_requirements, model_name='all-MiniLM-L6-v2', threshold=0.7):
     print("Loading sentence transformer model...")
     try:
         model = SentenceTransformer(model_name)
     except Exception as e:
-        print(f"Error loading model {model_name}.")
-        print("For first run, ensure internet connection to download the model.")
-        print(f"Error details: {e}")
+        print(f"Error loading model {model_name}: {e}")
         sys.exit(1)
     
-    # Encode test chunks once
     print("Encoding test policy chunks...")
     test_embeddings = model.encode(test_chunks, convert_to_tensor=True, show_progress_bar=True)
     
-    gaps = {
-        'IDENTIFY': [],
-        'PROTECT': [],
-        'DETECT': [],
-        'RESPOND': [],
-        'RECOVER': []
-    }
+    gaps = {'IDENTIFY': [],'PROTECT': [],'DETECT': [],'RESPOND': [],'RECOVER': []}
     
-    # Analyze each NIST function
     for function, req_chunks in nist_requirements.items():
         if not req_chunks:
             continue
-        
+        # Limit number of chunks per function
+        req_chunks = req_chunks[:50]
         print(f"Analyzing {function} function ({len(req_chunks)} requirements)...")
-        
-        # Encode requirements for this function
         req_embeddings = model.encode(req_chunks, convert_to_tensor=True, show_progress_bar=False)
-        
-        # Compute similarities between test chunks and requirements
         similarities = util.cos_sim(test_embeddings, req_embeddings)
-        
-        # Check each requirement
         for i, req_chunk in enumerate(req_chunks):
-            # Find maximum similarity across all test chunks for this requirement
             max_sim = float(np.max(similarities[:, i].cpu().numpy()))
-            
-            # Identify gap if similarity is below threshold
             if max_sim < threshold:
-                # Determine severity based on similarity score
-                if max_sim < 0.4:
+                if max_sim < 0.5:
                     severity = "Critical"
                     coverage = "Not addressed"
-                elif max_sim < 0.55:
+                elif max_sim < 0.65:
                     severity = "High"
                     coverage = "Minimally addressed"
                 elif max_sim < threshold:
@@ -434,69 +241,49 @@ def analyze_gaps_nist_aligned(reference_chunks, test_chunks, nist_requirements,
                 else:
                     severity = "Low"
                     coverage = "Mostly addressed"
-                
-                # Extract NIST category from requirement text (basic extraction)
                 category = extract_nist_category(req_chunk, function)
-                
                 gaps[function].append({
                     'nist_function': function,
                     'nist_category': category,
-                    'requirement': req_chunk[:500],  # Truncate for readability
+                    'requirement': req_chunk[:500],
                     'max_similarity': max_sim,
                     'severity': severity,
                     'current_coverage': coverage,
                     'recommendation': f"Implement controls and procedures to address: {req_chunk[:200]}..."
                 })
-    
     return gaps
 
 def extract_nist_category(requirement_text, function):
-    """Extract NIST category from requirement text"""
-    
-    # Category keywords mapping
     categories = {
-        'IDENTIFY': {
-            'Asset Management': ['asset', 'inventory', 'hardware', 'software', 'data flow'],
-            'Business Environment': ['business', 'mission', 'stakeholder', 'priority'],
-            'Governance': ['governance', 'policy', 'legal', 'regulatory', 'privacy'],
-            'Risk Assessment': ['risk', 'threat', 'vulnerability', 'likelihood', 'impact'],
-            'Risk Management Strategy': ['risk strategy', 'risk tolerance', 'risk appetite'],
-            'Supply Chain': ['supply chain', 'supplier', 'vendor', 'third-party']
-        },
-        'PROTECT': {
-            'Access Control': ['access', 'authentication', 'authorization', 'credential'],
-            'Awareness and Training': ['awareness', 'training', 'education'],
-            'Data Security': ['data security', 'encryption', 'data protection', 'confidentiality'],
-            'Information Protection': ['information protection', 'baseline', 'configuration'],
-            'Maintenance': ['maintenance', 'logging', 'audit'],
-            'Protective Technology': ['protective technology', 'technical security', 'firewall']
-        },
-        'DETECT': {
-            'Anomalies and Events': ['anomaly', 'anomalies', 'event', 'baseline'],
-            'Security Continuous Monitoring': ['monitoring', 'continuous', 'real-time'],
-            'Detection Processes': ['detection', 'alerts', 'threshold', 'indicator']
-        },
-        'RESPOND': {
-            'Response Planning': ['response plan', 'incident response', 'procedures'],
-            'Communications': ['communication', 'notification', 'reporting'],
-            'Analysis': ['analysis', 'investigate', 'forensic', 'root cause'],
-            'Mitigation': ['mitigation', 'contain', 'isolate', 'remediate'],
-            'Improvements': ['lessons learned', 'improvement', 'update']
-        },
-        'RECOVER': {
-            'Recovery Planning': ['recovery plan', 'business continuity', 'disaster recovery'],
-            'Improvements': ['recovery improvement', 'recovery update'],
-            'Communications': ['recovery communication', 'stakeholder notification']
-        }
+        'IDENTIFY': {'Asset Management':['asset','inventory','hardware','software','data flow'],
+                     'Business Environment':['business','mission','stakeholder','priority'],
+                     'Governance':['governance','policy','legal','regulatory','privacy'],
+                     'Risk Assessment':['risk','threat','vulnerability','likelihood','impact'],
+                     'Risk Management Strategy':['risk strategy','risk tolerance','risk appetite'],
+                     'Supply Chain':['supply chain','supplier','vendor','third-party']},
+        'PROTECT': {'Access Control':['access','authentication','authorization','credential'],
+                    'Awareness and Training':['awareness','training','education'],
+                    'Data Security':['data security','encryption','data protection','confidentiality'],
+                    'Information Protection':['information protection','baseline','configuration'],
+                    'Maintenance':['maintenance','logging','audit'],
+                    'Protective Technology':['protective technology','technical security','firewall']},
+        'DETECT': {'Anomalies and Events':['anomaly','anomalies','event','baseline'],
+                   'Security Continuous Monitoring':['monitoring','continuous','real-time'],
+                   'Detection Processes':['detection','alerts','threshold','indicator']},
+        'RESPOND': {'Response Planning':['response plan','incident response','procedures'],
+                    'Communications':['communication','notification','reporting'],
+                    'Analysis':['analysis','investigate','forensic','root cause'],
+                    'Mitigation':['mitigation','contain','isolate','remediate'],
+                    'Improvements':['lessons learned','improvement','update']},
+        'RECOVER': {'Recovery Planning':['recovery plan','business continuity','disaster recovery'],
+                    'Improvements':['recovery improvement','recovery update'],
+                    'Communications':['recovery communication','stakeholder notification']}
     }
-    
     req_lower = requirement_text.lower()
-    
     if function in categories:
         for category, keywords in categories[function].items():
             if any(keyword in req_lower for keyword in keywords):
                 return category
-    
     return "General"
 
 # ============================================================================
