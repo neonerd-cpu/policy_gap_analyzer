@@ -4,6 +4,9 @@ Fixed version with intelligent gap detection to avoid over-reporting
 """
 
 import os
+os.environ["HF_HUB_OFFLINE"] = "1"
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+os.environ["HF_DATASETS_OFFLINE"] = "1"
 import json
 from typing import List, Dict, Tuple
 from dataclasses import dataclass
@@ -39,7 +42,19 @@ class PolicyGapAnalyzer:
         """
         self.model_name = model_name
         self.similarity_threshold = similarity_threshold
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        try:
+            self.embedding_model = SentenceTransformer(
+                "sentence-transformers/all-MiniLM-L6-v2",
+                local_files_only=True
+            )
+        except Exception as e:
+            raise RuntimeError(
+                "SentenceTransformer model not found in local cache.\n"
+                "Run once with internet:\n"
+                "  python3 -c \"from sentence_transformers import SentenceTransformer; "
+                "SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')\""
+            ) from e
+
         
         # NIST CSF Core Functions and Categories (high-level framework)
         self.nist_framework = {
