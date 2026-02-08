@@ -205,10 +205,7 @@ tests/
 Basic run:
 
 ```bash
-python3 policy_gap_analyzer.py \
-  --reference_folder ./refs \
-  --test_folder ./tests \
-  --output ./reports
+python3 policy_gap_analyzer.py
 ```
 
 ---
@@ -244,7 +241,7 @@ If these exist, the run was successful ✅
 Disconnect internet and rerun:
 
 ```bash
-python3 policy_gap_analyzer.py --reference_folder refs --test_folder tests --output outputs
+python3 policy_gap_analyzer.py
 ```
 
 If it runs → **Fully offline confirmed** ✅
