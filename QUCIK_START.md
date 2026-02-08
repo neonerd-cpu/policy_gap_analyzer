@@ -52,9 +52,9 @@ test_policies/
 
 #### Option A: Basic Analysis (No LLM)
 ```bash
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/
 ```
 
 **Run time:** 5-10 seconds per policy  
@@ -66,9 +66,9 @@ python policy_gap_analyzer_enhanced.py \
 ollama serve
 
 # Terminal 2: Run analysis
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/ \
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/ \
   --use-llm
 ```
 
@@ -97,36 +97,36 @@ reports/
 
 ### Single Policy Analysis
 ```bash
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/ \
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/ \
   --use-llm
 ```
 
 ### Batch Analysis (Multiple Policies)
 ```bash
 # The tool automatically processes all files in test_folder
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/ \
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/ \
   --use-llm
 ```
 
 ### Strict Gap Detection
 ```bash
 # Lower threshold = more gaps detected
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/ \
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/ \
   --threshold 0.6
 ```
 
 ### Lenient Gap Detection
 ```bash
 # Higher threshold = fewer gaps (only obvious missing items)
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/ \
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/ \
   --threshold 0.8
 ```
 
@@ -194,9 +194,9 @@ ls reference/
 ollama serve
 
 # Or run without LLM
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/
   # (no --use-llm flag)
 ```
 
@@ -213,9 +213,9 @@ python -c "from sentence_transformers import SentenceTransformer; SentenceTransf
 # Remove --use-llm for faster (but less intelligent) analysis
 # OR
 # Use smaller chunks
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/ \
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/ \
   --chunk_size 300
 ```
 
@@ -225,12 +225,12 @@ python policy_gap_analyzer_enhanced.py \
 
 ```bash
 # See all available options
-python policy_gap_analyzer_enhanced.py --help
+python policy_gap_analyzer.py --help
 
 # Test with example
-python policy_gap_analyzer_enhanced.py \
-  --reference_folder reference/ \
-  --test_folder test_policies/ \
+python policy_gap_analyzer.py \
+  --reference_folder refs/ \
+  --test_folder tests/ \
   --output test_run/
 ```
 
