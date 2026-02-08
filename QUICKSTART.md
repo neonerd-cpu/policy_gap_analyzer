@@ -219,6 +219,7 @@ reports/
   ├── policy_name/
   │   ├── gap_analysis.txt
   │   └── revised_policy.txt
+  │   └── gaps.json
 ```
 
 If these exist, the run was successful ✅
