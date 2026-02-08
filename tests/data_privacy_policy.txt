@@ -1,0 +1,122 @@
+DATA PRIVACY AND PROTECTION POLICY
+
+Version: 1.0
+Effective Date: January 1, 2026
+Last Updated: January 1, 2026
+
+1. PURPOSE
+
+This Data Privacy and Protection Policy establishes guidelines for the collection, 
+use, storage, and protection of personal and sensitive data.
+
+2. SCOPE
+
+This policy applies to all data collected, processed, or stored by the organization 
+from customers, employees, partners, and third parties.
+
+3. POLICY STATEMENT
+
+3.1 Data Privacy Principles
+
+The organization commits to:
+- Collecting only necessary data
+- Obtaining consent before data collection
+- Protecting data from unauthorized access
+- Providing transparency about data usage
+- Allowing individuals to access their data
+
+3.2 Data Collection
+
+Personal data shall only be collected for:
+- Legitimate business purposes
+- Legal compliance
+- Service delivery
+- Customer support
+
+Data subjects must be informed of:
+- What data is collected
+- Why it is collected
+- How long it will be retained
+- Who it may be shared with
+
+3.3 Consent Management
+
+Explicit consent is required for:
+- Marketing communications
+- Sharing data with third parties
+- Processing sensitive personal data
+
+Consent must be:
+- Freely given
+- Specific
+- Informed
+- Revocable at any time
+
+3.4 Data Subject Rights
+
+Individuals have the right to:
+- Access their personal data
+- Correct inaccurate data
+- Request data deletion
+- Object to data processing
+- Data portability
+
+Requests must be responded to within 30 days.
+
+3.5 Data Retention
+
+Personal data shall be retained only as long as necessary.
+Retention periods are based on:
+- Legal requirements
+- Business needs
+- Consent duration
+
+Data must be securely deleted when no longer needed.
+
+3.6 Third-Party Data Sharing
+
+Data may only be shared with third parties when:
+- Required by law
+- Necessary for service delivery
+- Explicitly consented by data subject
+
+All third parties must sign Data Processing Agreements.
+
+3.7 Data Breach Response
+
+Data breaches must be:
+- Detected and contained immediately
+- Reported to management within 24 hours
+- Notified to affected individuals if required
+- Documented for regulatory compliance
+
+3.8 International Data Transfers
+
+Cross-border data transfers require:
+- Adequacy decision or appropriate safeguards
+- Standard contractual clauses
+- Data subject notification
+
+3.9 Employee Responsibilities
+
+All employees must:
+- Complete data privacy training annually
+- Handle personal data with care
+- Report suspected breaches immediately
+- Follow data minimization principles
+
+4. ENFORCEMENT
+
+Violations may result in disciplinary action and regulatory penalties.
+
+5. REFERENCES
+
+- General Data Protection Regulation (GDPR)
+- California Consumer Privacy Act (CCPA)
+- Organizational Code of Conduct
+
+---
+
+APPROVED BY:
+Jane Smith, Chief Privacy Officer
+Date: January 1, 2026

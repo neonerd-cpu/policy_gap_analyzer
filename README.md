@@ -17,6 +17,8 @@
 4. ✅ **Severity-based filtering** (Critical, High, Medium, Low)
 5. ✅ Groups related requirements instead of treating each sentence separately
 6. ✅ Validates gaps with LLM before reporting
+7. ✅ **Batch processes** all policies in tests/ folder automatically
+8. ✅ Creates **separate output folders** for each policy
 
 ## 🔧 Key Improvements
 
@@ -69,6 +71,33 @@ pip install -r requirements.txt
 ```
 
 ## 🚀 Quick Start
+
+### Batch Processing (Recommended)
+The easiest way to analyze multiple policies:
+
+```bash
+# 1. Place all your policies in tests/ folder
+tests/
+├── isms_policy.txt
+├── data_privacy_policy.txt
+├── incident_response_policy.txt
+└── your_policy.pdf
+
+# 2. Run the analyzer (processes ALL policies automatically)
+python policy_gap_analyzer.py
+
+# 3. Check results - each policy gets its own folder
+reports/
+├── isms_policy/
+│   ├── gap_analysis.txt
+│   └── revised_policy.txt
+├── data_privacy_policy/
+│   ├── gap_analysis.txt
+│   └── revised_policy.txt
+└── your_policy/
+    ├── gap_analysis.txt
+    └── revised_policy.txt
+```
 
 ### 1. Basic Usage
 ```python

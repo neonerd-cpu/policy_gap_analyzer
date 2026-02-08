@@ -25,29 +25,42 @@ cd policy_gap_analyzer_fixed
 pip install -r requirements.txt
 ```
 
-### Step 3: Prepare Your Policy
+### Step 3: Prepare Your Policies
 
-Place your policy PDF in a test directory:
+Place your policy files in the tests/ folder:
 ```bash
-mkdir test_policies
-# Copy your policy.pdf to test_policies/
+# Add your policies here (supports .txt, .pdf, .md)
+tests/
+├── test_policy.txt               # Sample provided
+├── data_privacy_policy.txt       # Sample provided  
+├── incident_response_policy.txt  # Sample provided
+└── your_custom_policy.pdf        # Add your own!
 ```
 
 ### Step 4: Run Analysis
 
 ```bash
-# Edit policy_gap_analyzer.py line 321 to point to your policy
-# Change: policy_path = "test_policies/your_policy.pdf"
-
-# Run the analysis
+# Analyzes ALL policies in tests/ folder automatically
 python policy_gap_analyzer.py
+
+# The script will process each policy and create separate output folders
 ```
 
 ### Step 5: Review Results
 
-Check the generated files:
-- `gap_analysis_report.txt` - Detailed gap report
-- `revised_policy.txt` - Policy with suggested additions
+Each policy gets its own output folder in reports/:
+```bash
+reports/
+├── test_policy/
+│   ├── gap_analysis.txt      # Detailed gap analysis
+│   └── revised_policy.txt    # Policy with suggested additions
+├── data_privacy_policy/
+│   ├── gap_analysis.txt
+│   └── revised_policy.txt
+└── your_custom_policy/
+    ├── gap_analysis.txt
+    └── revised_policy.txt
+```
 
 ---
 

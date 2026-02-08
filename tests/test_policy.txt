@@ -1,21 +1,98 @@
-Information Security Policy
+SAMPLE INFORMATION SECURITY MANAGEMENT SYSTEM (ISMS) POLICY
 
-1. Purpose
-This policy defines the organization's approach to information security.
+Version: 1.0
+Effective Date: January 1, 2026
+Last Updated: January 1, 2026
 
-2. Access Control
-Only authorized personnel may access critical systems. Passwords must be strong.
+1. PURPOSE
 
-3. Data Protection
-Sensitive data must be encrypted in transit and at rest.
+This Information Security Management System (ISMS) Policy establishes the framework for 
+protecting organizational information assets and ensuring the confidentiality, integrity, 
+and availability of data.
 
-4. Incident Response
-All security incidents must be reported to the IT security team within 24 hours.
+2. SCOPE
 
-5. Backup and Recovery
-Critical data must be backed up daily and recovery procedures tested quarterly.
+This policy applies to all employees, contractors, vendors, and third parties who have 
+access to organizational information systems and data.
 
-6. Risk Management
-Risks must be identified, assessed, and mitigated according to risk appetite.
+3. POLICY STATEMENT
 
-End of Policy.
+3.1 Information Security Objectives
+
+The organization is committed to:
+- Protecting sensitive information from unauthorized access
+- Ensuring business continuity
+- Complying with applicable laws and regulations
+- Maintaining customer trust
+
+3.2 Roles and Responsibilities
+
+The Chief Information Security Officer (CISO) is responsible for:
+- Developing and maintaining information security policies
+- Overseeing security operations
+- Reporting security metrics to executive management
+
+Department managers are responsible for:
+- Ensuring compliance within their departments
+- Reporting security incidents
+- Participating in security awareness training
+
+3.3 Access Control
+
+All users must authenticate with unique credentials before accessing systems.
+Access rights shall be reviewed quarterly.
+Privileged access requires additional approval.
+
+3.4 Data Classification
+
+Information shall be classified as:
+- Public: Information intended for public disclosure
+- Internal: Information for internal use only
+- Confidential: Sensitive business information
+- Restricted: Highly sensitive information requiring strict controls
+
+3.5 Acceptable Use
+
+Users must:
+- Use information systems only for authorized business purposes
+- Protect their credentials
+- Report suspicious activities
+- Comply with all security policies
+
+3.6 Security Awareness
+
+All employees shall complete security awareness training upon hire and annually thereafter.
+
+3.7 Physical Security
+
+Physical access to data centers and server rooms is restricted to authorized personnel.
+Visitors must be escorted at all times.
+
+3.8 Change Management
+
+All system changes must be documented, tested, and approved before implementation.
+
+3.9 Monitoring and Logging
+
+Security events shall be logged and reviewed regularly.
+Logs shall be retained for at least 90 days.
+
+3.10 Policy Review
+
+This policy shall be reviewed annually and updated as needed.
+
+4. ENFORCEMENT
+
+Violations of this policy may result in disciplinary action up to and including termination.
+
+5. REFERENCES
+
+- ISO/IEC 27001:2013
+- NIST Cybersecurity Framework
+- Organizational Code of Conduct
+
+---
+
+APPROVED BY:
+John Doe, Chief Information Officer
+Date: January 1, 2026

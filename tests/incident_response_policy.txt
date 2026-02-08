@@ -1,0 +1,55 @@
+INCIDENT RESPONSE POLICY
+
+Version: 1.0
+Date: January 1, 2026
+
+1. PURPOSE
+
+To establish procedures for responding to security incidents.
+
+2. SCOPE
+
+All employees and systems.
+
+3. POLICY
+
+3.1 Incident Identification
+
+Security incidents include:
+- Unauthorized access
+- Malware infections
+- Data breaches
+- System outages
+
+3.2 Reporting
+
+All incidents must be reported immediately to the IT helpdesk.
+
+3.3 Response Team
+
+The Incident Response Team includes:
+- IT Manager
+- Security Officer
+- Legal Counsel
+
+3.4 Containment
+
+Upon detection, affected systems should be isolated.
+
+3.5 Documentation
+
+All incidents must be logged with:
+- Date and time
+- Type of incident
+- Actions taken
+- Resolution
+
+3.6 Review
+
+Incidents are reviewed monthly by management.
+
+---
+
+APPROVED BY:
+IT Manager
+Date: January 1, 2026

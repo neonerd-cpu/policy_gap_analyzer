@@ -350,17 +350,15 @@ Policy section:"""
         revised_policy += "="*50
         revised_policy += "".join(additions)
         
-        # Save if output path provided, otherwise use default
-        if output_path is None:
-            output_path = "reports/revised_policy.txt"
-        
-        # Ensure reports directory exists
-        import os
-        os.makedirs("reports", exist_ok=True)
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(revised_policy)
-        print(f"💾 Revised policy saved to: {output_path}")
+        # Save if output path provided
+        if output_path:
+            # Ensure parent directory exists
+            import os
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(revised_policy)
+            print(f"💾 Revised policy saved to: {output_path}")
         
         return revised_policy
     
@@ -476,7 +474,9 @@ DETAILED GAP ANALYSIS
 
 
 def main():
-    """Main execution function"""
+    """Main execution function - processes all policies in tests/ folder"""
+    import os
+    import glob
     
     # Initialize analyzer with balanced threshold
     # Increase threshold (e.g., 0.70) for fewer gaps
@@ -486,50 +486,86 @@ def main():
         similarity_threshold=0.65   # Balanced threshold
     )
     
-    # Ensure output directories exist
-    import os
-    os.makedirs("reports", exist_ok=True)
+    # Find all policy files in tests/ folder
+    policy_files = []
+    for ext in ['*.txt', '*.pdf', '*.md']:
+        policy_files.extend(glob.glob(os.path.join("tests", ext)))
     
-    # Path to policy document
-    policy_path = "tests/test_policy.txt"
+    if not policy_files:
+        print("❌ No policy files found in tests/ folder")
+        print("   Looking for: .txt, .pdf, .md files")
+        return
     
-    print("🚀 Starting Policy Gap Analysis")
+    print("="*80)
+    print("🚀 BATCH POLICY GAP ANALYSIS")
+    print("="*80)
     print(f"📌 Similarity Threshold: {analyzer.similarity_threshold}")
     print(f"📌 Higher threshold = stricter = more gaps")
-    print(f"📌 Lower threshold = lenient = fewer gaps\n")
+    print(f"📌 Lower threshold = lenient = fewer gaps")
+    print(f"📄 Policies Found: {len(policy_files)}\n")
     
-    # Step 1: Identify gaps
-    gaps = analyzer.identify_gaps(policy_path)
+    # Process each policy
+    for i, policy_path in enumerate(policy_files, 1):
+        # Extract policy name (without extension)
+        policy_name = os.path.splitext(os.path.basename(policy_path))[0]
+        
+        # Create output folder for this policy
+        output_folder = os.path.join("reports", policy_name)
+        os.makedirs(output_folder, exist_ok=True)
+        
+        print("\n" + "="*80)
+        print(f"📄 [{i}/{len(policy_files)}] Analyzing: {os.path.basename(policy_path)}")
+        print(f"📁 Output Folder: {output_folder}")
+        print("="*80)
+        
+        try:
+            # Step 1: Identify gaps
+            print("🔍 Identifying gaps...")
+            gaps = analyzer.identify_gaps(policy_path)
+            
+            # Step 2: Generate improvement roadmap
+            print("🗺️  Generating roadmap...")
+            roadmap = analyzer.generate_improvement_roadmap(gaps)
+            
+            # Step 3: Generate revised policy
+            print("📝 Generating revised policy...")
+            revised_policy = analyzer.generate_revised_policy(
+                policy_path,
+                gaps,
+                output_path=os.path.join(output_folder, "revised_policy.txt")
+            )
+            
+            # Step 4: Generate comprehensive report
+            print("📊 Generating analysis report...")
+            report = analyzer.generate_report(
+                policy_path,
+                gaps,
+                roadmap,
+                output_path=os.path.join(output_folder, "gap_analysis.txt")
+            )
+            
+            print("\n" + "-"*80)
+            print(f"✅ ANALYSIS COMPLETE FOR: {policy_name}")
+            print("-"*80)
+            print(f"📊 Total Gaps: {len(gaps)}")
+            print(f"🔴 Critical: {len([g for g in gaps if g.severity == 'Critical'])}")
+            print(f"🟠 High: {len([g for g in gaps if g.severity == 'High'])}")
+            print(f"🟡 Medium: {len([g for g in gaps if g.severity == 'Medium'])}")
+            print(f"🟢 Low: {len([g for g in gaps if g.severity == 'Low'])}")
+            print(f"\n📁 Output folder: {output_folder}/")
+            print(f"   - gap_analysis.txt")
+            print(f"   - revised_policy.txt")
+            
+        except Exception as e:
+            print(f"\n❌ Error analyzing {policy_name}: {str(e)}")
+            continue
     
-    # Step 2: Generate improvement roadmap
-    roadmap = analyzer.generate_improvement_roadmap(gaps)
-    
-    # Step 3: Generate revised policy
-    revised_policy = analyzer.generate_revised_policy(
-        policy_path,
-        gaps,
-        output_path="reports/revised_policy.txt"
-    )
-    
-    # Step 4: Generate comprehensive report
-    report = analyzer.generate_report(
-        policy_path,
-        gaps,
-        roadmap,
-        output_path="reports/gap_analysis_report.txt"
-    )
-    
-    print("\n" + "="*80)
-    print("✅ ANALYSIS COMPLETE")
+    print("\n\n" + "="*80)
+    print("✅ ALL POLICIES ANALYZED")
     print("="*80)
-    print(f"📊 Total Gaps: {len(gaps)}")
-    print(f"🔴 Critical: {len([g for g in gaps if g.severity == 'Critical'])}")
-    print(f"🟠 High: {len([g for g in gaps if g.severity == 'High'])}")
-    print(f"🟡 Medium: {len([g for g in gaps if g.severity == 'Medium'])}")
-    print(f"🟢 Low: {len([g for g in gaps if g.severity == 'Low'])}")
-    print("\n📄 Output files in reports/ folder:")
-    print("  - gap_analysis_report.txt")
-    print("  - revised_policy.txt")
+    print(f"📁 Results saved in reports/ folder")
+    print(f"   Each policy has its own subfolder with 2 output files")
+    print("="*80)
     
 
 if __name__ == "__main__":
