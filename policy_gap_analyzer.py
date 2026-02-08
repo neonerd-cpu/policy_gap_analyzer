@@ -116,6 +116,163 @@ def chunk_text(text, chunk_size=500, overlap=100):
     return chunks
 
 # ============================================================================
+# POLICY TYPE DETECTION AND DOMAIN MATCHING
+# ============================================================================
+
+def detect_policy_type(filename, policy_text):
+    """Detect policy type from filename and content"""
+    
+    filename_lower = filename.lower()
+    text_lower = policy_text.lower()
+    
+    # Policy type indicators
+    policy_indicators = {
+        'ISMS': {
+            'filename_keywords': ['isms', 'information_security', 'infosec', 'security_management'],
+            'content_keywords': ['information security management', 'isms', 'security policy', 
+                                'information assets', 'security controls', 'iso 27001']
+        },
+        'Data Privacy': {
+            'filename_keywords': ['privacy', 'data_privacy', 'data_protection', 'gdpr', 'pii'],
+            'content_keywords': ['personal data', 'privacy', 'data subject', 'consent',
+                                'data protection', 'gdpr', 'personally identifiable']
+        },
+        'Patch Management': {
+            'filename_keywords': ['patch', 'patching', 'update', 'vulnerability'],
+            'content_keywords': ['patch management', 'software update', 'vulnerability remediation',
+                                'patch deployment', 'security patch', 'patch cycle']
+        },
+        'Risk Management': {
+            'filename_keywords': ['risk', 'risk_management', 'risk_assessment'],
+            'content_keywords': ['risk management', 'risk assessment', 'risk analysis',
+                                'risk mitigation', 'threat assessment', 'risk register']
+        },
+        'Incident Response': {
+            'filename_keywords': ['incident', 'ir', 'incident_response'],
+            'content_keywords': ['incident response', 'security incident', 'incident handling',
+                                'breach response', 'incident management']
+        },
+        'Access Control': {
+            'filename_keywords': ['access', 'access_control', 'iam', 'identity'],
+            'content_keywords': ['access control', 'authentication', 'authorization',
+                                'identity management', 'privileged access']
+        },
+        'Backup Recovery': {
+            'filename_keywords': ['backup', 'recovery', 'bcdr', 'disaster'],
+            'content_keywords': ['backup', 'disaster recovery', 'business continuity',
+                                'data recovery', 'restoration']
+        }
+    }
+    
+    # Score each policy type
+    scores = {}
+    for policy_type, indicators in policy_indicators.items():
+        score = 0
+        
+        # Check filename
+        for keyword in indicators['filename_keywords']:
+            if keyword in filename_lower:
+                score += 3  # Higher weight for filename matches
+        
+        # Check content (first 2000 chars for efficiency)
+        text_sample = text_lower[:2000]
+        for keyword in indicators['content_keywords']:
+            if keyword in text_sample:
+                score += 1
+        
+        scores[policy_type] = score
+    
+    # Return best match or 'General' if no strong match
+    if max(scores.values()) >= 2:
+        return max(scores, key=scores.get)
+    else:
+        return 'General'
+
+def filter_relevant_references(reference_chunks, policy_type):
+    """Filter reference chunks to those relevant for the detected policy type"""
+    
+    # Domain-specific keyword mapping
+    domain_keywords = {
+        'ISMS': [
+            'information security', 'isms', 'security management', 'iso 27001',
+            'security controls', 'information assets', 'security governance',
+            'security policy', 'security framework', 'asset management',
+            'governance', 'risk assessment', 'access control', 'data security'
+        ],
+        'Data Privacy': [
+            'privacy', 'personal data', 'data protection', 'gdpr', 'pii',
+            'personally identifiable', 'data subject', 'consent', 'data breach',
+            'privacy rights', 'data minimization', 'retention', 'data security',
+            'confidentiality', 'encryption'
+        ],
+        'Patch Management': [
+            'patch', 'vulnerability', 'update', 'software update', 'patch management',
+            'vulnerability management', 'remediation', 'patch deployment',
+            'patch testing', 'maintenance', 'configuration management',
+            'baseline configuration', 'system hardening'
+        ],
+        'Risk Management': [
+            'risk', 'threat', 'vulnerability', 'risk assessment', 'risk management',
+            'risk analysis', 'risk mitigation', 'risk treatment', 'likelihood',
+            'impact', 'risk register', 'threat assessment', 'control effectiveness',
+            'risk appetite', 'risk tolerance'
+        ],
+        'Incident Response': [
+            'incident', 'incident response', 'security incident', 'breach',
+            'incident handling', 'containment', 'forensics', 'investigation',
+            'incident management', 'response procedures', 'escalation',
+            'anomalies', 'detection', 'monitoring', 'alerts'
+        ],
+        'Access Control': [
+            'access control', 'authentication', 'authorization', 'identity',
+            'access management', 'privileged access', 'least privilege',
+            'credential', 'multi-factor', 'password', 'user access',
+            'role-based access', 'access review'
+        ],
+        'Backup Recovery': [
+            'backup', 'recovery', 'business continuity', 'disaster recovery',
+            'restoration', 'resilience', 'backup procedures', 'recovery planning',
+            'continuity planning', 'recovery time', 'recovery point',
+            'data backup', 'system recovery'
+        ],
+        'General': []  # General policies get all requirements
+    }
+    
+    if policy_type == 'General':
+        print(f"  Policy type: General (using all NIST requirements)")
+        return reference_chunks
+    
+    # Get relevant keywords for this policy type
+    relevant_keywords = domain_keywords.get(policy_type, [])
+    
+    if not relevant_keywords:
+        print(f"  Policy type: {policy_type} (no specific filtering, using all requirements)")
+        return reference_chunks
+    
+    # Filter chunks that are relevant to this domain
+    filtered_chunks = []
+    for chunk in reference_chunks:
+        chunk_lower = chunk.lower()
+        
+        # Check if chunk contains domain-relevant keywords
+        relevance_score = sum(1 for keyword in relevant_keywords if keyword in chunk_lower)
+        
+        # Include chunk if it has at least 1 relevant keyword
+        # OR if it's a core NIST requirement that applies to all policies
+        is_core_requirement = any(keyword in chunk_lower for keyword in [
+            'must', 'shall', 'required', 'policy', 'procedure', 'process',
+            'management', 'organization', 'documentation'
+        ])
+        
+        if relevance_score > 0 or is_core_requirement:
+            filtered_chunks.append(chunk)
+    
+    print(f"  Policy type: {policy_type}")
+    print(f"  Filtered references: {len(filtered_chunks)}/{len(reference_chunks)} chunks relevant")
+    
+    return filtered_chunks
+
+# ============================================================================
 # NIST FRAMEWORK EXTRACTION
 # ============================================================================
 
@@ -595,11 +752,10 @@ def generate_phase_structure(gaps):
 # OUTPUT GENERATION
 # ============================================================================
 
-def save_gap_analysis_json(gaps, test_file, output_dir):
+def save_gap_analysis_json(gaps, test_file, output_dir, policy_type='General'):
     """Save structured JSON gap analysis"""
     
     base_name = os.path.basename(test_file).rsplit('.', 1)[0]
-    policy_type = base_name.split('_')[0].upper() if '_' in base_name else base_name.upper()
     
     # Flatten gaps for JSON
     identified_gaps = []
@@ -635,7 +791,7 @@ def save_gap_analysis_json(gaps, test_file, output_dir):
     print(f"✅ Gap analysis saved: {output_path}")
     return output_path
 
-def save_revised_policy_markdown(revised_text, test_file, output_dir):
+def save_revised_policy_markdown(revised_text, test_file, output_dir, policy_type='General'):
     """Save revised policy as Markdown"""
     
     base_name = os.path.basename(test_file).rsplit('.', 1)[0]
@@ -643,6 +799,7 @@ def save_revised_policy_markdown(revised_text, test_file, output_dir):
     
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(f"# Revised Policy: {base_name.replace('_', ' ').title()}\n\n")
+        f.write(f"**Policy Type**: {policy_type}\n\n")
         f.write(f"**Original File**: {os.path.basename(test_file)}\n\n")
         f.write(f"**Analysis Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write(f"**Framework**: NIST Cybersecurity Framework (CIS MS-ISAC 2024)\n\n")
@@ -652,11 +809,17 @@ def save_revised_policy_markdown(revised_text, test_file, output_dir):
     print(f"✅ Revised policy saved: {output_path}")
     return output_path
 
-def save_roadmap_json(roadmap_data, test_file, output_dir):
+def save_roadmap_json(roadmap_data, test_file, output_dir, policy_type='General'):
     """Save roadmap as structured JSON"""
     
     base_name = os.path.basename(test_file).rsplit('.', 1)[0]
     output_path = os.path.join(output_dir, f"{base_name}_improvement_roadmap.json")
+    
+    # Add policy type to roadmap metadata
+    if isinstance(roadmap_data, dict):
+        roadmap_data['policy_type'] = policy_type
+        roadmap_data['policy_file'] = os.path.basename(test_file)
+        roadmap_data['generated_date'] = datetime.now().isoformat()
     
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(roadmap_data, f, indent=2, ensure_ascii=False)
@@ -664,7 +827,7 @@ def save_roadmap_json(roadmap_data, test_file, output_dir):
     print(f"✅ Improvement roadmap saved: {output_path}")
     return output_path
 
-def save_summary_report(gaps, test_file, output_dir):
+def save_summary_report(gaps, test_file, output_dir, policy_type='General'):
     """Generate human-readable summary report"""
     
     base_name = os.path.basename(test_file).rsplit('.', 1)[0]
@@ -681,11 +844,13 @@ def save_summary_report(gaps, test_file, output_dir):
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(f"# Policy Gap Analysis Summary Report\n\n")
         f.write(f"**Policy**: {base_name.replace('_', ' ').title()}\n\n")
+        f.write(f"**Policy Type**: {policy_type}\n\n")
         f.write(f"**Date**: {datetime.now().strftime('%Y-%m-%d')}\n\n")
         f.write(f"**Framework**: NIST Cybersecurity Framework (CIS MS-ISAC 2024)\n\n")
         f.write("---\n\n")
         
         f.write("## Executive Summary\n\n")
+        f.write(f"This {policy_type} policy was analyzed against domain-relevant NIST CSF requirements.\n\n")
         f.write(f"Total gaps identified: **{total_gaps}**\n\n")
         f.write("### Severity Breakdown\n\n")
         f.write(f"- 🔴 Critical: {severity_counts['Critical']}\n")
@@ -797,16 +962,31 @@ def main(reference_folder, test_folder, output_dir='reports', chunk_size=500,
         
         print(f"Policy text extracted: {len(test_text)} characters")
         
+        # Detect policy type
+        print("\n🔍 Detecting policy type...")
+        policy_type = detect_policy_type(os.path.basename(test_file), test_text)
+        
+        # Filter reference chunks to relevant domain
+        print(f"\n📋 Filtering NIST requirements for {policy_type} domain...")
+        filtered_ref_chunks = filter_relevant_references(ref_chunks, policy_type)
+        
+        # Extract NIST requirements from filtered chunks
+        print("\n🔧 Extracting NIST framework structure from relevant requirements...")
+        domain_nist_requirements = extract_nist_requirements(filtered_ref_chunks)
+        for function, reqs in domain_nist_requirements.items():
+            if reqs:
+                print(f"  {function}: {len(reqs)} requirements")
+        
         # Chunk test policy
         test_chunks = chunk_text(test_text, chunk_size, overlap)
-        print(f"Policy chunked into {len(test_chunks)} chunks\n")
+        print(f"\nPolicy chunked into {len(test_chunks)} chunks\n")
         
-        # Analyze gaps
-        print("🔍 Analyzing gaps against NIST framework...")
+        # Analyze gaps with domain-specific requirements
+        print("🔍 Analyzing gaps against domain-relevant NIST requirements...")
         gaps = analyze_gaps_nist_aligned(
-            ref_chunks, 
+            filtered_ref_chunks, 
             test_chunks, 
-            nist_requirements,
+            domain_nist_requirements,
             threshold=threshold
         )
         
@@ -818,7 +998,7 @@ def main(reference_folder, test_folder, output_dir='reports', chunk_size=500,
         
         # 1. Gap Analysis JSON
         try:
-            save_gap_analysis_json(gaps, test_file, output_dir)
+            save_gap_analysis_json(gaps, test_file, output_dir, policy_type)
         except Exception as e:
             print(f"❌ Error saving gap analysis: {e}")
         
@@ -826,8 +1006,10 @@ def main(reference_folder, test_folder, output_dir='reports', chunk_size=500,
         try:
             print("\n📝 Generating revised policy...")
             if use_llm:
+                # Use filtered reference text for LLM context
+                filtered_ref_text = '\n\n'.join(filtered_ref_chunks[:50])  # Limit for context window
                 revised_policy = generate_revised_policy_with_llm(
-                    test_text, gaps, reference_text, model
+                    test_text, gaps, filtered_ref_text, model
                 )
             else:
                 all_gaps = []
@@ -835,7 +1017,7 @@ def main(reference_folder, test_folder, output_dir='reports', chunk_size=500,
                     all_gaps.extend(function_gaps)
                 revised_policy = generate_revised_policy_template(test_text, all_gaps)
             
-            save_revised_policy_markdown(revised_policy, test_file, output_dir)
+            save_revised_policy_markdown(revised_policy, test_file, output_dir, policy_type)
         except Exception as e:
             print(f"❌ Error saving revised policy: {e}")
         
@@ -853,13 +1035,13 @@ def main(reference_folder, test_folder, output_dir='reports', chunk_size=500,
                         severity_counts[gap['severity']] += 1
                 roadmap = generate_roadmap_template(all_gaps, severity_counts)
             
-            save_roadmap_json(roadmap, test_file, output_dir)
+            save_roadmap_json(roadmap, test_file, output_dir, policy_type)
         except Exception as e:
             print(f"❌ Error saving roadmap: {e}")
         
         # 4. Summary Report
         try:
-            save_summary_report(gaps, test_file, output_dir)
+            save_summary_report(gaps, test_file, output_dir, policy_type)
         except Exception as e:
             print(f"❌ Error saving summary report: {e}")
         
