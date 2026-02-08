@@ -4,7 +4,7 @@ import argparse
 import glob
 from docx import Document  # For reading .docx files
 import pdfplumber  # For reading .pdf files
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter  # Updated import
 from sentence_transformers import SentenceTransformer, util
 import numpy as np
 import nltk
