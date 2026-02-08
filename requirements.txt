@@ -1,29 +1,7 @@
-# Core numerical + ML
-numpy>=1.23,<2.0
-scikit-learn>=1.2
-
-# PyTorch (CPU only)
-torch>=2.0.0
-
-# Embeddings
-sentence-transformers>=2.2.2
-transformers>=4.36.0
-
-# Vector search
-faiss-cpu>=1.7.4
-
-# NLP utilities
-nltk>=3.8
-
-# File parsing
-python-docx>=1.1.0
-pdfplumber>=0.10.3
-
-# HTTP (Ollama local API)
-requests>=2.31.0
-
-# Progress + utilities
-tqdm>=4.65.0
-
-# Optional but recommended
-regex>=2023.12.25
+numpy
+scikit-learn
+sentence-transformers
+torch
+transformers
+PyPDF2
+ollama
